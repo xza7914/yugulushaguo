@@ -64,6 +64,10 @@ double Angle(Vector a, Vector b)
 bool canRecv(int workshop_id, int product_id)
 {
     Workshop &workshop = workshops[workshop_id];
+    // 已经分配给其他机器人了
+    if (workshop.assigned_[product_id])
+        return false;
+    
     switch (workshop.type_)
     {
     case 1:
@@ -188,11 +192,20 @@ void getNextDes(int robot_id)
         // 机器人未持有物品
         if (robot.product_id_ == 0)
         {
-            if (workshops[t].product_status_)
+            int type = workshops[t].type_;
+            // 选择了只能卖东西的工作台
+            if(type > 8)
+                continue ;
+            // 已经有机器申请了取得该东西
+            if(workshops[t].assigned_[type])
+                continue ;
+            // 工作台有待取的产品
+            if (workshops[t].product_status_ )
             {
                 task.workshop_id_ = t;
                 task.task_type_ = BUY;
                 robot.has_task_ = true;
+                workshops[t].assigned_[type] = true;
                 break;
             }
         }
@@ -204,6 +217,7 @@ void getNextDes(int robot_id)
                 task.workshop_id_ = t;
                 task.task_type_ = SELL;
                 robot.has_task_ = true;
+                workshops[t].assigned_[robot.product_id_] = true;
                 break;
             }
         }
@@ -227,6 +241,10 @@ vector<string> setInsToDes(int robot_id)
 {
     struct Robot &robot = robots[robot_id];
     struct Task &task = robot.task_;
+    int target_workshop_id = task.workshop_id_;
+    struct Workshop &workshop = workshops[target_workshop_id];
+    int product_id = robot.product_id_;
+    int workshop_type = workshop.type_;
     vector<string> res;
 
     if (!robot.has_task_)
@@ -239,6 +257,7 @@ vector<string> setInsToDes(int robot_id)
         res.push_back("destroy " + to_string(robot_id));
         res.push_back("forward " + to_string(robot_id) + " 0");
         robot.has_task_ = false;
+        workshop.assigned_[product_id] = false;
     }
     else if (robot.workshop_id_ == task.workshop_id_)
     {
@@ -246,11 +265,13 @@ vector<string> setInsToDes(int robot_id)
         {
             res.push_back("sell " + to_string(robot_id));
             robot.has_task_ = false;
+            workshop.assigned_[product_id] = false;
         }
         else if (task.task_type_ == BUY)
         {
             res.push_back("buy " + to_string(robot_id));
             robot.has_task_ = false;
+            workshop.assigned_[workshop_type] = false;
         }
 
         res.push_back("forward " + to_string(robot_id) + " 0");

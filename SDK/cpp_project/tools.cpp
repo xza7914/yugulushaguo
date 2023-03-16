@@ -223,8 +223,8 @@ void getNextDes(int robot_id, int framd_id)
 
     // 下列算法寻找产品号最大的，且总距离最短的产品
 
-    double min_distance;
-    int max_product_id = 0;
+    double max_priority = -1e100;
+    int tar_product_id = 0;
     int buy_from = 0;
     int sell_to = 0;
 
@@ -234,9 +234,6 @@ void getNextDes(int robot_id, int framd_id)
             continue;
 
         int product_id = getProductId(i);
-
-        if (product_id < max_product_id)
-            continue;
 
         for (int j = 0; j < workshop_num; ++j)
         {
@@ -248,36 +245,34 @@ void getNextDes(int robot_id, int framd_id)
                 // 计算剩余时间内机器人可行驶的最大距离，并排除掉不可能的任务。
                 double max_length = 5.0 * (MAX_FRAME_ID - framd_id) * TIME_FRAME;
                 if (max_length < distance) continue;
-                
-                if (max_product_id < product_id)
-                {
-                    max_product_id = product_id;
-                    min_distance = distance;
+
+                // 优先级
+                double priority = -distance * 5;
+                priority += product_id * 100;
+                if (product_id > 3) priority += 500;
+                if (product_id == 7) priority += 1000;
+                if (workshops[j].type_ == 9) priority -= 700;
+
+                if (priority > max_priority) {
+                    max_priority = priority;
+                    tar_product_id = product_id;
                     buy_from = i;
                     sell_to = j;
                 }
-                else
-                {
-                    if (distance < min_distance)
-                    {
-                        min_distance = distance;
-                        buy_from = i;
-                        sell_to = j;
-                    }
-                }
+                
             }
         }
     }
 
-    if (max_product_id != 0)
+    if (tar_product_id != 0)
     {
         task.buy_workshop_id_ = buy_from;
         task.sell_workshop_id_ = sell_to;
-        task.product_id_ = max_product_id;
+        task.product_id_ = tar_product_id;
         robot.has_task_ = true;
 
         reserveProduct(buy_from);
-        reserveStuff(sell_to, max_product_id);
+        reserveStuff(sell_to, tar_product_id);
     }
 }
 

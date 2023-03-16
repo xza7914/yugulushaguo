@@ -29,11 +29,14 @@ typedef Point Vector;
 // 工作台状态，每帧更新一次
 struct Workshop
 {
+    // 通用状态（题目所给）
     int type_;
     Position position_;
     int remainder_produce_time_;
     int stuff_status_;
     char product_status_;
+    // 专用状态
+    bool assigned_ [10]; // assigned_[i] 表示产品 i 已经被分配给了机器人。（分配时判断并赋值，结算时消除）
 };
 
 enum TASK_TYPE
@@ -53,6 +56,7 @@ struct Task
 // 机器人状态，每帧更新一次
 struct Robot
 {
+    // 通用状态（题目所给）
     int robot_id_;
     int workshop_id_;
     int product_id_;
@@ -62,7 +66,7 @@ struct Robot
     LinearVelocity linear_velocity_;
     double direction_;
     Position position_;
-
+    // 专用状态
     bool has_task_; // 当前机器人是否有任务
     Task task_;     // 当前机器人的任务类型
 };

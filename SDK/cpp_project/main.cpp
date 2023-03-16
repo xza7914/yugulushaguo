@@ -15,9 +15,10 @@ int main()
         readAndSetStatus();
 
         for (int i = 0; i < 4; ++i)
-            getNextDes(i);
+            getNextDes(i, frameID);
 
         cout << frameID << '\n';
+        cerr << frameID << '\n';
 
         for (int i = 0; i < 4; ++i)
         {

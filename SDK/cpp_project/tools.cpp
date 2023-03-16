@@ -60,8 +60,48 @@ double Angle(Vector a, Vector b)
     return res;
 }
 
+int getProductId(int workshop_id)
+{
+    Workshop &workshop = workshops[workshop_id];
+
+    if (workshop.type_ <= 7)
+        return workshop.type_;
+
+    return 0;
+}
+
+// 预定stuff
+void reserveStuff(int workshop_id, int stuff_id)
+{
+    if (workshops[workshop_id].type_ >= 8) return;
+    assert((workshops[workshop_id].reserve_stuff_status_ & (1 << stuff_id)) == 0);
+    workshops[workshop_id].reserve_stuff_status_ |= (1 << stuff_id);
+}
+
+// 取消预订
+void cancelReserveStuff(int workshop_id, int stuff_id)
+{
+    if (workshops[workshop_id].type_ >= 8) return;
+    assert((workshops[workshop_id].reserve_stuff_status_ & (1 << stuff_id)) != 0);
+    workshops[workshop_id].reserve_stuff_status_ &= ~(1 << stuff_id);
+}
+
+// 预定product
+void reserveProduct(int workshop_id)
+{
+    assert(workshops[workshop_id].reserve_product_status_ == 0);
+    workshops[workshop_id].reserve_product_status_ = 1;
+}
+
+// 取消预订
+void cancelReserveProduct(int workshop_id)
+{
+    assert(workshops[workshop_id].reserve_product_status_ == 1);
+    workshops[workshop_id].reserve_product_status_ = 0;
+}
+
 // 判断当前 第workshop_id个工作台是否可以接收product_id号产品
-bool canRecv(int workshop_id, int product_id)
+bool canRecvStuff(int workshop_id, int product_id)
 {
     Workshop &workshop = workshops[workshop_id];
     switch (workshop.type_)
@@ -74,7 +114,7 @@ bool canRecv(int workshop_id, int product_id)
     case 4:
         if (product_id == 1 || product_id == 2)
         {
-            if (!(workshop.stuff_status_ & (1 << product_id)))
+            if (!(workshop.stuff_status_ & (1 << product_id)) && !(workshop.reserve_stuff_status_ & (1 << product_id)))
                 return true;
         }
         return false;
@@ -82,7 +122,7 @@ bool canRecv(int workshop_id, int product_id)
     case 5:
         if (product_id == 1 || product_id == 3)
         {
-            if (!(workshop.stuff_status_ & (1 << product_id)))
+            if (!(workshop.stuff_status_ & (1 << product_id)) && !(workshop.reserve_stuff_status_ & (1 << product_id)))
                 return true;
         }
         return false;
@@ -90,7 +130,7 @@ bool canRecv(int workshop_id, int product_id)
     case 6:
         if (product_id == 2 || product_id == 3)
         {
-            if (!(workshop.stuff_status_ & (1 << product_id)))
+            if (!(workshop.stuff_status_ & (1 << product_id)) && !(workshop.reserve_stuff_status_ & (1 << product_id)))
                 return true;
         }
         return false;
@@ -98,7 +138,7 @@ bool canRecv(int workshop_id, int product_id)
     case 7:
         if (product_id == 4 || product_id == 5 || product_id == 6)
         {
-            if (!(workshop.stuff_status_ & (1 << product_id)))
+            if (!(workshop.stuff_status_ & (1 << product_id)) && !(workshop.reserve_stuff_status_ & (1 << product_id)))
                 return true;
         }
         return false;
@@ -106,6 +146,7 @@ bool canRecv(int workshop_id, int product_id)
     case 8:
         if (product_id == 7)
             return true;
+
         return false;
 
     case 9:
@@ -172,8 +213,7 @@ void readAndSetStatus()
 }
 
 // 按照当前状态为机器人安排任务
-// 目前的策略为随机挑选
-void getNextDes(int robot_id)
+void getNextDes(int robot_id, int framd_id)
 {
     struct Robot &robot = robots[robot_id];
     struct Task &task = robot.task_;
@@ -181,44 +221,63 @@ void getNextDes(int robot_id)
     if (robot.has_task_)
         return;
 
-    for (int i = 0; i < 3000; ++i)
-    {
-        int t = rand() % workshop_num;
+    // 下列算法寻找产品号最大的，且总距离最短的产品
 
-        // 机器人未持有物品
-        if (robot.product_id_ == 0)
+    double min_distance;
+    int max_product_id = 0;
+    int buy_from = 0;
+    int sell_to = 0;
+
+    for (int i = 0; i < workshop_num; ++i)
+    {
+        if (!workshops[i].product_status_ || workshops[i].reserve_product_status_)
+            continue;
+
+        int product_id = getProductId(i);
+
+        if (product_id < max_product_id)
+            continue;
+
+        for (int j = 0; j < workshop_num; ++j)
         {
-            if (workshops[t].product_status_)
+            if (canRecvStuff(j, product_id))
             {
-                task.workshop_id_ = t;
-                task.task_type_ = BUY;
-                robot.has_task_ = true;
-                break;
-            }
-        }
-        // 机器人持有物品
-        else
-        {
-            if (canRecv(t, robot.product_id_))
-            {
-                task.workshop_id_ = t;
-                task.task_type_ = SELL;
-                robot.has_task_ = true;
-                break;
+                double distance = Length(workshops[i].position_ - workshops[j].position_) +
+                                  Length(workshops[i].position_ - robot.position_);
+
+                // 计算剩余时间内机器人可行驶的最大距离，并排除掉不可能的任务。
+                double max_length = 5.0 * (MAX_FRAME_ID - framd_id) * TIME_FRAME;
+                if (max_length < distance) continue;
+                
+                if (max_product_id < product_id)
+                {
+                    max_product_id = product_id;
+                    min_distance = distance;
+                    buy_from = i;
+                    sell_to = j;
+                }
+                else
+                {
+                    if (distance < min_distance)
+                    {
+                        min_distance = distance;
+                        buy_from = i;
+                        sell_to = j;
+                    }
+                }
             }
         }
     }
 
-    // 无法为持有物品的机器人找到出售点， 则销毁物品
-    // 经测试，此行为会出现销毁价值较大的物品
-    // 如果未出现死锁，尽量不要销毁物品
-    if (robot.product_id_ && !robot.has_task_)
+    if (max_product_id != 0)
     {
-        if (rand() % 100 == 0)
-        {
-            task.task_type_ = DESTROY;
-            robot.has_task_ = true;
-        }
+        task.buy_workshop_id_ = buy_from;
+        task.sell_workshop_id_ = sell_to;
+        task.product_id_ = max_product_id;
+        robot.has_task_ = true;
+
+        reserveProduct(buy_from);
+        reserveStuff(sell_to, max_product_id);
     }
 }
 
@@ -236,56 +295,70 @@ vector<string> setInsToDes(int robot_id)
     }
     else if (task.task_type_ == DESTROY)
     {
-        res.push_back("destroy " + to_string(robot_id));
-        res.push_back("forward " + to_string(robot_id) + " 0");
-        robot.has_task_ = false;
-    }
-    else if (robot.workshop_id_ == task.workshop_id_)
-    {
-        if (task.task_type_ == SELL)
-        {
-            res.push_back("sell " + to_string(robot_id));
-            robot.has_task_ = false;
-        }
-        else if (task.task_type_ == BUY)
-        {
-            res.push_back("buy " + to_string(robot_id));
-            robot.has_task_ = false;
-        }
-
-        res.push_back("forward " + to_string(robot_id) + " 0");
+        // 目前的策略不会销毁产品
+        throw runtime_error("unexpected condition");
     }
     else
     {
-        int workshop_id = task.workshop_id_;
+        int target_workshop_id;
 
-        Vector direction = Vector(cos(robot.direction_), sin(robot.direction_));
-        Vector robot_to_workshop = workshops[workshop_id].position_ - robot.position_;
-
-        double angle = Angle(direction, robot_to_workshop);
-        double palstance = 0;
-        if (!IsZero(angle))
+        // 根据机器人此时是否携带产品，来判定任务的阶段。
+        if (robot.product_id_)
         {
-            palstance = angle / TIME_FRAME;
-        }
-
-        if (!IsZero(palstance))
-        {
-            res.push_back("rotate " + to_string(robot_id) + " " + to_string(palstance));
+            target_workshop_id = task.sell_workshop_id_;
         }
         else
         {
-            res.push_back("rotate " + to_string(robot_id) + " 0");
+            target_workshop_id = task.buy_workshop_id_;
         }
 
-        if (Dot(robot.linear_velocity_, robot_to_workshop) < 0)
+        if (target_workshop_id == robot.workshop_id_)
         {
-            res.push_back("forward " + to_string(robot_id) + " 0");
+            if (robot.product_id_)
+            {
+                res.push_back("sell " + to_string(robot_id));
+                cancelReserveStuff(target_workshop_id, robot.product_id_);
+                robot.has_task_ = false;
+            }
+            else
+            {
+                res.push_back("buy " + to_string(robot_id));
+                cancelReserveProduct(target_workshop_id);
+            }
         }
         else
         {
-            res.push_back("forward " + to_string(robot_id) + " 6");
+            int workshop_id = target_workshop_id;
+
+            Vector direction = Vector(cos(robot.direction_), sin(robot.direction_));
+            Vector robot_to_workshop = workshops[workshop_id].position_ - robot.position_;
+
+            double angle = Angle(direction, robot_to_workshop);
+            double palstance = 0;
+            if (!IsZero(angle))
+            {
+                palstance = angle / TIME_FRAME;
+            }
+
+            if (!IsZero(palstance))
+            {
+                res.push_back("rotate " + to_string(robot_id) + " " + to_string(palstance));
+            }
+            else
+            {
+                res.push_back("rotate " + to_string(robot_id) + " 0");
+            }
+
+            if (Dot(robot.linear_velocity_, robot_to_workshop) < 0)
+            {
+                res.push_back("forward " + to_string(robot_id) + " 0");
+            }
+            else
+            {
+                res.push_back("forward " + to_string(robot_id) + " 6");
+            }
         }
     }
+
     return res;
 }

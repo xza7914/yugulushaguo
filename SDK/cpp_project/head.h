@@ -12,6 +12,7 @@ using namespace std;
 const double PI = acos(-1);
 const double EPS = 1e-2;
 const double TIME_FRAME = 1.0 / 50;
+const int MAX_FRAME_ID = 9000;
 
 // 用于坐标计算
 struct Point
@@ -33,7 +34,10 @@ struct Workshop
     Position position_;
     int remainder_produce_time_;
     int stuff_status_;
-    char product_status_;
+    int product_status_;
+    // 代表被预定的状态
+    int reserve_stuff_status_;
+    int reserve_product_status_;
 };
 
 enum TASK_TYPE
@@ -44,9 +48,12 @@ enum TASK_TYPE
     BUY
 };
 
+// 任务分为两段，一阶段买，二阶段卖
 struct Task
 {
-    int workshop_id_;
+    int buy_workshop_id_;
+    int sell_workshop_id_;
+    int product_id_;
     TASK_TYPE task_type_;
 };
 
@@ -73,9 +80,14 @@ double Length(Vector, Vector);
 double Angle(Vector, Vector);
 
 void init();
-bool canRecv(int, int);
+int getProductId(int);
+void reserveStuff(int, int);
+void cancelReserveStuff(int, int);
+void reserveProduct(int);
+void cancelReserveProduct(int);
+bool canRecvStuff(int, int);
 void readAndSetStatus();
-void getNextDes(int);
+void getNextDes(int, int);
 vector<string> setInsToDes(int);
 
 #endif

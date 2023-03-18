@@ -7,12 +7,24 @@
 #include <math.h>
 #include <vector>
 #include <string>
+#include <algorithm>
 using namespace std;
 
 const double PI = acos(-1);
 const double EPS = 1e-2;
 const double TIME_FRAME = 1.0 / 50;
 const int MAX_FRAME_ID = 9000;
+const double MAX_VELOCITY= 6; // 预设最低速度（为0会导致永远停止）
+const double BASE_VELOCITY = 2; // 预设最低速度（为0会导致永远停止）
+const double BASE_PALSTANCE = 1; // 预设最低角速度
+const double BASE_TIME = 0.3; // 预设最低预测时间，低于则发出碰撞警告，需要减速/转向等措施干预
+const double BASE_DISTANCE = BASE_VELOCITY * BASE_TIME; // 预设最低距离碰撞限制，低于则发出碰撞警告，需要减速/转向等措施干预
+
+
+const double MAX_X = 50;
+const double MAX_Y = 50;
+const double RADIUS_ROBOT = 0.43;
+const double RADIUS_ROBOT_CARRY = 0.53;
 
 // 用于坐标计算
 struct Point
@@ -80,6 +92,7 @@ double Length(Vector, Vector);
 double Angle(Vector, Vector);
 
 void init();
+void scanCollisionStatus();
 int getProductId(int);
 void reserveStuff(int, int);
 void cancelReserveStuff(int, int);
@@ -87,6 +100,8 @@ void reserveProduct(int);
 void cancelReserveProduct(int);
 int getUrgency(int);
 bool canRecvStuff(int, int);
+bool canCollideWall(int);
+int canCollideRobot(int, int);
 void readAndSetStatus();
 vector<string> reduceCollide();
 void getNextDes(int, int);

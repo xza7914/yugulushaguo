@@ -13,7 +13,8 @@ int main()
     while (cin >> frameID >> money)
     {
         readAndSetStatus();
-
+        if(frameID % 10 == 0)
+            scanCollisionStatus();
         for (int i = 0; i < 4; ++i)
             getNextDes(i, frameID);
 

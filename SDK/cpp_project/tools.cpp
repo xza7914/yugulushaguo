@@ -1,4 +1,5 @@
 #include "head.h"
+#include "macro.h"
 #include <cassert>
 #include <stdexcept>
 #include <iostream>
@@ -73,7 +74,8 @@ int getProductId(int workshop_id)
 // 预定stuff
 void reserveStuff(int workshop_id, int stuff_id)
 {
-    if (workshops[workshop_id].type_ >= 8) return;
+    if (workshops[workshop_id].type_ >= 8)
+        return;
     assert((workshops[workshop_id].reserve_stuff_status_ & (1 << stuff_id)) == 0);
     workshops[workshop_id].reserve_stuff_status_ |= (1 << stuff_id);
 }
@@ -81,7 +83,8 @@ void reserveStuff(int workshop_id, int stuff_id)
 // 取消预订
 void cancelReserveStuff(int workshop_id, int stuff_id)
 {
-    if (workshops[workshop_id].type_ >= 8) return;
+    if (workshops[workshop_id].type_ >= 8)
+        return;
     assert((workshops[workshop_id].reserve_stuff_status_ & (1 << stuff_id)) != 0);
     workshops[workshop_id].reserve_stuff_status_ &= ~(1 << stuff_id);
 }
@@ -98,6 +101,19 @@ void cancelReserveProduct(int workshop_id)
 {
     assert(workshops[workshop_id].reserve_product_status_ == 1);
     workshops[workshop_id].reserve_product_status_ = 0;
+}
+
+int getUrgency(int workshop_id)
+{
+    int res = 0;
+    int t = workshops[workshop_id].stuff_status_;
+    while (t)
+    {
+        if (t & 1)
+            ++res;
+        t >>= 1;
+    }
+    return res;
 }
 
 // 判断当前 第workshop_id个工作台是否可以接收product_id号产品
@@ -244,22 +260,29 @@ void getNextDes(int robot_id, int framd_id)
 
                 // 计算剩余时间内机器人可行驶的最大距离，并排除掉不可能的任务。
                 double max_length = 5.0 * (MAX_FRAME_ID - framd_id) * TIME_FRAME;
-                if (max_length < distance) continue;
+                if (max_length < distance)
+                    continue;
 
                 // 优先级
-                double priority = -distance * 5;
-                priority += product_id * 100;
-                if (product_id > 3) priority += 500;
-                if (product_id == 7) priority += 1000;
-                if (workshops[j].type_ == 9) priority -= 700;
+                double priority = INIT_PRIORITY;
+                priority += product_id * PRODUCT_ID;
+                if (product_id > 3)
+                    priority += LEVEL_1;
+                if (product_id == 7)
+                    priority += LEVEL_2;
+                priority += getUrgency(j) * URGENCY;
+                if (workshops[j].type_ == 9)
+                    priority -= NINE_WORKSHOP;
 
-                if (priority > max_priority) {
+                priority = priority * 200 / distance;
+
+                if (priority > max_priority)
+                {
                     max_priority = priority;
                     tar_product_id = product_id;
                     buy_from = i;
                     sell_to = j;
                 }
-                
             }
         }
     }
@@ -274,6 +297,25 @@ void getNextDes(int robot_id, int framd_id)
         reserveProduct(buy_from);
         reserveStuff(sell_to, tar_product_id);
     }
+}
+
+vector<string> reduceCollide()
+{
+    vector<string> res;
+    for (int i = 0; i < 4; ++i)
+    {
+        for (int j = i + 1; j < 4; ++j)
+        {
+            double distance = Length(robots[i].position_ - robots[j].position_);
+            double angle = Angle(robots[i].linear_velocity_, robots[j].linear_velocity_);
+            if (distance < 2 && (angle > PI - 0.3 || angle < -PI + 0.3))
+            {
+                res.push_back("rotate " + to_string(i) + " 1");
+                res.push_back("rotate " + to_string(j) + " 1");
+            }
+        }
+    }
+    return res;
 }
 
 // 为机器人设置具体指令
@@ -329,6 +371,7 @@ vector<string> setInsToDes(int robot_id)
             Vector robot_to_workshop = workshops[workshop_id].position_ - robot.position_;
 
             double angle = Angle(direction, robot_to_workshop);
+            double distance = Length(robot_to_workshop);
             double palstance = 0;
             if (!IsZero(angle))
             {

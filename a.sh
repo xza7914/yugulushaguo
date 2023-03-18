@@ -1,1 +1,1 @@
-./Robot_gui ./SDK/cpp_project/build/main -m maps/3.txt -f
+./Robot_gui ./SDK/cpp_project/build/main -m maps/2.txt 

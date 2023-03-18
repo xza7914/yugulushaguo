@@ -85,8 +85,10 @@ void reserveStuff(int, int);
 void cancelReserveStuff(int, int);
 void reserveProduct(int);
 void cancelReserveProduct(int);
+int getUrgency(int);
 bool canRecvStuff(int, int);
 void readAndSetStatus();
+vector<string> reduceCollide();
 void getNextDes(int, int);
 vector<string> setInsToDes(int);
 

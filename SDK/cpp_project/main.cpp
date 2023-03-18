@@ -25,6 +25,9 @@ int main()
             for (auto x : instructions)
                 cout << x << '\n';
         }
+
+        // vector<string> instructions = reduceCollide();
+        // for (auto x : instructions) cout << x << '\n';
         
         cout << "OK" << endl;
     }

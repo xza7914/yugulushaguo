@@ -239,21 +239,36 @@ int canCollideRobot(int robot1_id, int robot2_id){
     double predict_y1 = x1 + vy1 * BASE_TIME;
     double predict_x2 = x2 + vx2 * BASE_TIME;
     double predict_y2 = x2 + vy2 * BASE_TIME;
+    
 
     // 预测不碰撞
     if( ! isIntersect(x1, y1, predict_x1, predict_y1, x2, y2, predict_y2, predict_y2) ){
         // 考虑是否会因为半径而相碰，而非质心相碰。
-        // 此时通常为小角度相碰
-        return 0;
+        // 此时通常为小角度相碰，所以要进行转向，减速没用
+        if(
+            isIntersect(x1 +RADIUS_ROBOT_CARRY , y1+RADIUS_ROBOT_CARRY
+                , predict_x1+RADIUS_ROBOT_CARRY, predict_y1+RADIUS_ROBOT_CARRY
+                , x2-RADIUS_ROBOT_CARRY, y2-RADIUS_ROBOT_CARRY
+                , predict_y2-RADIUS_ROBOT_CARRY, predict_y2-RADIUS_ROBOT_CARRY) ||
+            isIntersect(x1 -RADIUS_ROBOT_CARRY , y1-RADIUS_ROBOT_CARRY
+                , predict_x1-RADIUS_ROBOT_CARRY, predict_y1-RADIUS_ROBOT_CARRY
+                , x2+RADIUS_ROBOT_CARRY, y2+RADIUS_ROBOT_CARRY
+                , predict_y2+RADIUS_ROBOT_CARRY, predict_y2+RADIUS_ROBOT_CARRY)
+        )
+            return 1 << 0;
+        else{
+            return 0;
+        }
     }
         
     double angle = Angle({vx1, vy1}, {vx2, vy2});
     // 3/4 ~ 1 PI /  1/4 PI ~  0 PI : robot1顺时针，robot2逆时针
-    if(angle < -(PI/4)*3 || angle > (PI/4)*3)
+    if( (angle < 0 && angle > -(PI/4)) || angle > (PI/4)*3)
         return 1 << 0;
 
     // 1/4 ~ 0 PI / -3/4 PI ~ -1 PI : robot1逆时针，robot2顺时针
     if(angle < -(PI/4)*3 || angle > (PI/4)*3)
+    if( (angle > 0 && angle < (PI/4)) || angle < -(PI/4)*3)
         return 1 << 1;
 
     // 其余大角度 : robot1 减速
@@ -518,22 +533,22 @@ vector<string> setInsToDes(int robot_id)
             {
                 switch (collision[robot_id]) {
                     case 1:// 减速
-                    case 3:// 减速+顺时针：只减速
-                    case 5:// 减速+逆时针：只减速
                     case 6:// 顺时针+顺时针：只减速
                     case 7:// 减速+逆时针+顺时针：只减速
                     {
                         res.push_back("forward " + to_string(robot_id) + " " + to_string(MAX_VELOCITY));
                         break;
                     }
-                    case 2:{
-                        // 顺时针
+                    case 2:// 顺时针
+                    case 3:// 减速+顺时针
+                    {
                         res.push_back("forward " + to_string(robot_id) + " " + to_string(MAX_VELOCITY));
                         res.push_back("rotate " + to_string(robot_id) + " " + to_string(BASE_PALSTANCE));
                         break;
                     }
-                    case 4:{
-                        // 逆时针
+                    case 4:// 逆时针
+                    case 5:// 减速+逆时针
+                    {
                         res.push_back("forward " + to_string(robot_id) + " " + to_string(MAX_VELOCITY));
                         res.push_back("rotate " + to_string(robot_id) + " " + to_string(-BASE_PALSTANCE));
                         break;

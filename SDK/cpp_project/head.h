@@ -16,8 +16,8 @@ const double TIME_FRAME = 1.0 / 50;
 const int MAX_FRAME_ID = 9000;
 const double MAX_VELOCITY= 6; // 预设最低速度（为0会导致永远停止）
 const double BASE_VELOCITY = 2; // 预设最低速度（为0会导致永远停止）
-const double BASE_PALSTANCE = 1; // 预设最低角速度
-const double BASE_TIME = 0.3; // 预设最低预测时间，低于则发出碰撞警告，需要减速/转向等措施干预
+const double BASE_PALSTANCE = 0.5; // 预设最低角速度
+const double BASE_TIME = 0.5; // 预设最低预测时间，低于则发出碰撞警告，需要减速/转向等措施干预
 const double BASE_DISTANCE = BASE_VELOCITY * BASE_TIME; // 预设最低距离碰撞限制，低于则发出碰撞警告，需要减速/转向等措施干预
 
 

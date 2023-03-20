@@ -10,6 +10,7 @@ int workshop_num;
 int now_frame_id;
 struct Workshop workshops[55];
 struct Robot robots[4];
+int collision[4];
 
 // 由坐标计算出向量
 Vector operator-(const Point &a, const Point &b)
@@ -79,6 +80,30 @@ double Angle(const Vector &a, const Vector &b)
     }
 
     return res;
+}
+
+/// @brief Judge if two line segments intersect. Cite: https://blog.csdn.net/qq_38210354/article/details/107495845
+bool isIntersect(double Ax1,double Ay1,double Ax2,double Ay2,double Bx1,double By1,double Bx2,double By2)
+{
+    if(
+       ( max(Ax1,Ax2)>=min(Bx1,Bx2)&&min(Ax1,Ax2)<=max(Bx1,Bx2) )&&  //判断x轴投影
+       ( max(Ay1,Ay2)>=min(By1,By2)&&min(Ay1,Ay2)<=max(By1,By2) )    //判断y轴投影
+      )
+    {
+        if(
+            ( (Bx1-Ax1)*(Ay2-Ay1)-(By1-Ay1)*(Ax2-Ax1) ) *          //判断B是否跨过A
+            ( (Bx2-Ax1)*(Ay2-Ay1)-(By2-Ay1)*(Ax2-Ax1) ) <=0 &&
+            ( (Ax1-Bx1)*(By2-By1)-(Ay1-By1)*(Bx2-Bx1) ) *          //判断A是否跨过B
+            ( (Ax2-Bx1)*(By2-By1)-(Ay2-By1)*(Bx2-Bx1) ) <=0
+          )
+        {
+            return 1;
+        }
+        else
+            return 0;
+    }
+    else
+        return 0;
 }
 
 // 获取某工作台的产品类型
@@ -322,6 +347,83 @@ int getDestination(int robot_id)
         return task.sell_workshop_id_;
 }
 
+/// @brief Predict that the robot may collide with the wall in `BASE_TIME` seconds.
+bool canCollideWall(int robot_id){
+    struct Robot &robot = robots[robot_id];
+    double x = robot.position_.x_;
+    double y = robot.position_.y_;
+    double vx = min(robot.linear_velocity_.x_, BASE_VELOCITY);
+    double vy = max(robot.linear_velocity_.y_, BASE_VELOCITY);
+
+    double predict_x = x + vx * BASE_TIME;
+    double predict_y = x + vy * BASE_TIME;
+
+    if(predict_x > MAX_X || predict_x < EPS){
+        return true;
+    }
+    if(predict_y > MAX_Y || predict_y < EPS){
+        return true;
+    }
+    return false;
+}
+
+/// @brief Predict that the robot may collide with the wall in `BASE_TIME` seconds.
+/*
+    Strategy (If might collide):
+        Make far robot Slow down when collide angle ranges 45~135
+        Both avoid collide through turning angles when collide angle ranges 0~45 135~180 (Each for different directions)
+*/
+int canCollideRobot(int robot1_id, int robot2_id){
+    struct Robot &robot1 = robots[robot1_id];
+    struct Robot &robot2 = robots[robot2_id];
+    double x1 = robot1.position_.x_;
+    double y1 = robot1.position_.y_;
+    double x2 = robot2.position_.x_;
+    double y2 = robot2.position_.y_;
+    double vx1 = min(robot1.linear_velocity_.x_, BASE_VELOCITY);
+    double vy1 = min(robot1.linear_velocity_.y_, BASE_VELOCITY);
+    double vx2 = min(robot2.linear_velocity_.x_, BASE_VELOCITY);
+    double vy2 = min(robot2.linear_velocity_.y_, BASE_VELOCITY);
+    double predict_x1 = x1 + vx1 * BASE_TIME;
+    double predict_y1 = x1 + vy1 * BASE_TIME;
+    double predict_x2 = x2 + vx2 * BASE_TIME;
+    double predict_y2 = x2 + vy2 * BASE_TIME;
+    
+
+    // 预测不碰撞
+    if( ! isIntersect(x1, y1, predict_x1, predict_y1, x2, y2, predict_y2, predict_y2) ){
+        // 考虑是否会因为半径而相碰，而非质心相碰。
+        // 此时通常为小角度相碰，所以要进行转向，减速没用
+        if(
+            isIntersect(x1 +RADIUS_ROBOT_CARRY , y1+RADIUS_ROBOT_CARRY
+                , predict_x1+RADIUS_ROBOT_CARRY, predict_y1+RADIUS_ROBOT_CARRY
+                , x2-RADIUS_ROBOT_CARRY, y2-RADIUS_ROBOT_CARRY
+                , predict_y2-RADIUS_ROBOT_CARRY, predict_y2-RADIUS_ROBOT_CARRY) ||
+            isIntersect(x1 -RADIUS_ROBOT_CARRY , y1-RADIUS_ROBOT_CARRY
+                , predict_x1-RADIUS_ROBOT_CARRY, predict_y1-RADIUS_ROBOT_CARRY
+                , x2+RADIUS_ROBOT_CARRY, y2+RADIUS_ROBOT_CARRY
+                , predict_y2+RADIUS_ROBOT_CARRY, predict_y2+RADIUS_ROBOT_CARRY)
+        )
+            return 1 << 0;
+        else{
+            return 0;
+        }
+    }
+        
+    double angle = Angle({vx1, vy1}, {vx2, vy2});
+    // 3/4 ~ 1 PI /  1/4 PI ~  0 PI : robot1顺时针，robot2逆时针
+    if( (angle < 0 && angle > -(PI/4)) || angle > (PI/4)*3)
+        return 1 << 0;
+
+    // 1/4 ~ 0 PI / -3/4 PI ~ -1 PI : robot1逆时针，robot2顺时针
+    if(angle < -(PI/4)*3 || angle > (PI/4)*3)
+    if( (angle > 0 && angle < (PI/4)) || angle < -(PI/4)*3)
+        return 1 << 1;
+
+    // 其余大角度 : robot1 减速
+    return 1 << 2;
+}
+
 // 初始化并读入地图
 void init()
 {
@@ -483,6 +585,30 @@ void reduceCollideWall()
     }
 }
 
+/// @brief Pre-scan all robots collision status, and store to global collistion[robots][robots]
+void scanCollisionStatus()
+{
+    for (int i = 0; i < 4; i++){
+        collision[i] = 0;
+    }
+    for (int i = 0; i < 4; i++){
+        for (int j = (i+1); j < 4 ; j++){
+            int c = canCollideRobot(i, j);
+            collision[i] |= c;
+            // 为避免碰撞，两方旋转方向相反
+            if( c == 1 << 1){
+                collision[j] |= 1 << 2;
+            }
+            else if ( c == 1 << 2){
+                collision[j] |= 1 << 1;
+            }
+            else{
+                collision[j] |= c;
+            }
+        }
+    }
+}
+
 // 为机器人设置具体指令
 void setInsToDes(int robot_id)
 {
@@ -522,11 +648,13 @@ void setInsToDes(int robot_id)
         }
         else
         {
+            // 操作：前往工作台
             int workshop_id = target_workshop_id;
 
             Vector direction = Vector(cos(robot.direction_), sin(robot.direction_));
             Vector robot_to_workshop = workshops[workshop_id].position_ - robot.position_;
 
+            // 策略：若非直线前往工作台，需要转向。
             double angle = Angle(direction, robot_to_workshop);
             double distance = Length(robot_to_workshop);
             double palstance = 0;
@@ -544,10 +672,51 @@ void setInsToDes(int robot_id)
                 cout << "rotate " + to_string(robot_id) + " 0" << '\n';
             }
 
+            // 目的工作台与速度反向：刹车
             if (Dot(robot.linear_velocity_, robot_to_workshop) < 0)
             {
                 cout << "forward " + to_string(robot_id) + " 0" << '\n';
             }
+            // 可能与墙体发生碰撞：刹车
+            // else if ( canCollideWall(robot_id) )
+            // {
+            //     cerr << "may collide wall" << endl;
+            //     // res.push_back("forward " + to_string(robot_id) + " " + to_string(BASE_VELOCITY));
+            // }
+            // 可能与汽车发生碰撞
+            // else if ( collision[robot_id] )
+            // {
+            //     switch (collision[robot_id]) {
+            //         case 1:// 减速
+            //         case 6:// 顺时针+顺时针：只减速
+            //         case 7:// 减速+逆时针+顺时针：只减速
+            //         {
+            //             res.push_back("forward " + to_string(robot_id) + " " + to_string(MAX_VELOCITY));
+            //             break;
+            //         }
+            //         case 2:// 顺时针
+            //         case 3:// 减速+顺时针
+            //         {
+            //             res.push_back("forward " + to_string(robot_id) + " " + to_string(MAX_VELOCITY));
+            //             res.push_back("rotate " + to_string(robot_id) + " " + to_string(BASE_PALSTANCE));
+            //             break;
+            //         }
+            //         case 4:// 逆时针
+            //         case 5:// 减速+逆时针
+            //         {
+            //             res.push_back("forward " + to_string(robot_id) + " " + to_string(MAX_VELOCITY));
+            //             res.push_back("rotate " + to_string(robot_id) + " " + to_string(-BASE_PALSTANCE));
+            //             break;
+            //         }
+            //         default: {
+            //             throw runtime_error("unexpected collision[i]");
+            //             break;
+            //         }
+                    
+            //     }
+            //     // cerr << "may collide wall" << endl;
+            //     // res.push_back("forward " + to_string(robot_id) + " " + to_string(BASE_VELOCITY));
+            // }
             else
             {
                 if (distance < 1 && !IsZero(palstance))
@@ -559,6 +728,8 @@ void setInsToDes(int robot_id)
                     cout << "forward " + to_string(robot_id) + " 6" << '\n';
                 }
             }
+
+            
         }
     }
 }

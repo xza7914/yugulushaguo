@@ -14,7 +14,8 @@ int main()
     {
         setNowFrameId(frameID);
         readAndSetStatus();
-
+        if(frameID % 10 == 0)
+            scanCollisionStatus();
         for (int i = 0; i < 4; ++i)
             getNextDes(i);
 

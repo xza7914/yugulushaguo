@@ -87,6 +87,21 @@ bool isIntersect(double Ax1,double Ay1,double Ax2,double Ay2,double Bx1,double B
         return 0;
 }
 
+/// @brief Distance between point and the segment. Cite:https://blog.csdn.net/qq_28087491/article/details/119239974
+double PointToSegDist(double x, double y, double x1, double y1, double x2, double y2)
+{
+	double cross = (x2 - x1) * (x - x1) + (y2 - y1) * (y - y1);
+	if (cross <= 0) return sqrt((x - x1) * (x - x1) + (y - y1) * (y - y1));
+	  
+	double d2 = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
+	if (cross >= d2) return sqrt((x - x2) * (x - x2) + (y - y2) * (y - y2));
+	  
+	double r = cross / d2;
+	double px = x1 + (x2 - x1) * r;
+	double py = y1 + (y2 - y1) * r;
+	return sqrt((x - px) * (x - px) + (y - py) * (y - py));
+}
+
 
 int getProductId(int workshop_id)
 {
@@ -218,61 +233,99 @@ bool canCollideWall(int robot_id){
     return false;
 }
 
+string debugLineIntersect(double Ax1,double Ay1,double Ax2,double Ay2,double Bx1,double By1,double Bx2,double By2){
+    string s;
+    s += "(" + to_string(Ax1) + "," + to_string(Ay1) + ")";
+    s += "(" + to_string(Ax2) + "," + to_string(Ay2) + ")";
+    s += "(" + to_string(Bx1) + "," + to_string(By1) + ")";
+    s += "(" + to_string(Bx2) + "," + to_string(By2) + ")";
+    return s;
+}
+
 /// @brief Predict that the robot may collide with the wall in `BASE_TIME` seconds.
 /*
     Strategy (If might collide):
         Make far robot Slow down when collide angle ranges 45~135
         Both avoid collide through turning angles when collide angle ranges 0~45 135~180 (Each for different directions)
 */
-int canCollideRobot(int robot1_id, int robot2_id){
+pair<int,int> canCollideRobot(int robot1_id, int robot2_id){
     struct Robot &robot1 = robots[robot1_id];
     struct Robot &robot2 = robots[robot2_id];
     double x1 = robot1.position_.x_;
     double y1 = robot1.position_.y_;
     double x2 = robot2.position_.x_;
     double y2 = robot2.position_.y_;
-    double vx1 = min(robot1.linear_velocity_.x_, BASE_VELOCITY);
-    double vy1 = min(robot1.linear_velocity_.y_, BASE_VELOCITY);
-    double vx2 = min(robot2.linear_velocity_.x_, BASE_VELOCITY);
-    double vy2 = min(robot2.linear_velocity_.y_, BASE_VELOCITY);
-    double predict_x1 = x1 + vx1 * BASE_TIME;
-    double predict_y1 = x1 + vy1 * BASE_TIME;
-    double predict_x2 = x2 + vx2 * BASE_TIME;
-    double predict_y2 = x2 + vy2 * BASE_TIME;
+    // double vx1 = max(robot1.linear_velocity_.x_, BASE_VELOCITY);
+    // double vy1 = max(robot1.linear_velocity_.y_, BASE_VELOCITY);
+    // double vx2 = max(robot2.linear_velocity_.x_, BASE_VELOCITY);
+    // double vy2 = max(robot2.linear_velocity_.y_, BASE_VELOCITY);
+    double vx1 = robot1.linear_velocity_.x_;
+    double vy1 = robot1.linear_velocity_.y_;
+    double vx2 = robot2.linear_velocity_.x_;
+    double vy2 = robot2.linear_velocity_.y_;
+    double angle = Angle({vx1, vy1}, {vx2, vy2});
+    double relative_vx = vx2 - vx1; 
+    double relative_vy = vy2 - vy1; 
+    double relative_v = sqrt((relative_vx*relative_vx) + (relative_vy*relative_vy)); 
+    double base_time = min(BASE_DISTANCE/relative_v, BASE_TIME);
+    // cerr << base_time << endl;
+    double predict_x1 = x1 + vx1 * base_time;
+    double predict_y1 = x1 + vy1 * base_time;
+    double predict_x2 = x2 + vx2 * base_time;
+    double predict_y2 = x2 + vy2 * base_time;
     
 
-    // 预测不碰撞
+    // 预测不碰撞条件1：预计轨道不相交
     if( ! isIntersect(x1, y1, predict_x1, predict_y1, x2, y2, predict_y2, predict_y2) ){
-        // 考虑是否会因为半径而相碰，而非质心相碰。
-        // 此时通常为小角度相碰，所以要进行转向，减速没用
-        if(
-            isIntersect(x1 +RADIUS_ROBOT_CARRY , y1+RADIUS_ROBOT_CARRY
-                , predict_x1+RADIUS_ROBOT_CARRY, predict_y1+RADIUS_ROBOT_CARRY
-                , x2-RADIUS_ROBOT_CARRY, y2-RADIUS_ROBOT_CARRY
-                , predict_y2-RADIUS_ROBOT_CARRY, predict_y2-RADIUS_ROBOT_CARRY) ||
-            isIntersect(x1 -RADIUS_ROBOT_CARRY , y1-RADIUS_ROBOT_CARRY
-                , predict_x1-RADIUS_ROBOT_CARRY, predict_y1-RADIUS_ROBOT_CARRY
-                , x2+RADIUS_ROBOT_CARRY, y2+RADIUS_ROBOT_CARRY
-                , predict_y2+RADIUS_ROBOT_CARRY, predict_y2+RADIUS_ROBOT_CARRY)
-        )
-            return 1 << 0;
-        else{
-            return 0;
-        }
+        // cerr << "intersect:" << debugLineIntersect(x1, y1, predict_x1, predict_y1, x2, y2, predict_y2, predict_y2);
+
+        // if(
+        //     isIntersect(x1 +RADIUS_ROBOT_CARRY , y1+RADIUS_ROBOT_CARRY
+        //         , predict_x1+RADIUS_ROBOT_CARRY, predict_y1+RADIUS_ROBOT_CARRY
+        //         , x2-RADIUS_ROBOT_CARRY, y2-RADIUS_ROBOT_CARRY
+        //         , predict_y2-RADIUS_ROBOT_CARRY, predict_y2-RADIUS_ROBOT_CARRY) ||
+        //     isIntersect(x1 -RADIUS_ROBOT_CARRY , y1-RADIUS_ROBOT_CARRY
+        //         , predict_x1-RADIUS_ROBOT_CARRY, predict_y1-RADIUS_ROBOT_CARRY
+        //         , x2+RADIUS_ROBOT_CARRY, y2+RADIUS_ROBOT_CARRY
+        //         , predict_y2+RADIUS_ROBOT_CARRY, predict_y2+RADIUS_ROBOT_CARRY)
+        // )
+        //     return 1 << 0;
+        // else{
+        //     return 0;
+        // }
+
+        
+        // 预测不碰撞条件2：预计轨道间最短距离大于直径
+        /*      考虑是否会因为半径而相碰，而非质心相碰。
+                方法：使用相对距离和相对速度，算出相对轨迹过程中最短距离
+        */   
+        double relative_x = x2 - x1; 
+        double relative_y = y2 - y1; 
+        double relative_predict_x = predict_x2 - predict_x1; 
+        double relative_predict_y = predict_y2 - predict_y1;
+        double min_dis = PointToSegDist(0,0,relative_x,relative_y,relative_predict_x,relative_predict_y);
+        if(min_dis > 2* RADIUS_ROBOT_CARRY)
+            return pair<int,int> (NOTHING, NOTHING);
     }
         
-    double angle = Angle({vx1, vy1}, {vx2, vy2});
-    // 3/4 ~ 1 PI /  1/4 PI ~  0 PI : robot1顺时针，robot2逆时针
-    if( (angle < 0 && angle > -(PI/4)) || angle > (PI/4)*3)
-        return 1 << 0;
+        
 
-    // 1/4 ~ 0 PI / -3/4 PI ~ -1 PI : robot1逆时针，robot2顺时针
-    if(angle < -(PI/4)*3 || angle > (PI/4)*3)
-    if( (angle > 0 && angle < (PI/4)) || angle < -(PI/4)*3)
-        return 1 << 1;
+    
+    //  0      ~  1/4 PI: robot1逆时针，robot2顺时针
+    if (angle > EPS && angle < (PI/4)) 
+        return pair<int,int> (ROTATE_ANTI_CLOCKWISE, ROTATE_CLOCKWISE);
+    //  3/4 PI ~      PI: robot1逆时针，robot2逆时针
+    if (angle > (PI/4)*3 && angle < PI )
+        return pair<int,int> (ROTATE_ANTI_CLOCKWISE, ROTATE_ANTI_CLOCKWISE);
+    //  0   PI ~ -1/4 PI: robot1顺时针，robot2逆时针
+    if (angle < EPS && angle < -(PI/4) )
+        return pair<int,int> (ROTATE_CLOCKWISE, ROTATE_ANTI_CLOCKWISE);
+    // -3/4 PI ~     -PI: robot1顺时针，robot2顺时针
+    if (angle < -(PI/4)*3 && angle > PI )
+        return pair<int,int> (ROTATE_CLOCKWISE, ROTATE_CLOCKWISE);
 
     // 其余大角度 : robot1 减速
-    return 1 << 2;
+    return pair<int,int> (NOTHING, NOTHING);
 }
 
 // 初始化
@@ -430,18 +483,9 @@ void scanCollisionStatus()
     }
     for (int i = 0; i < 4; i++){
         for (int j = (i+1); j < 4 ; j++){
-            int c = canCollideRobot(i, j);
-            collision[i] |= c;
-            // 为避免碰撞，两方旋转方向相反
-            if( c == 1 << 1){
-                collision[j] |= 1 << 2;
-            }
-            else if ( c == 1 << 2){
-                collision[j] |= 1 << 1;
-            }
-            else{
-                collision[j] |= c;
-            }
+            pair<int,int> results = canCollideRobot(i, j);
+            collision[i] |= results.first;
+            collision[j] |= results.second;
         }
     }
 }
@@ -532,23 +576,26 @@ vector<string> setInsToDes(int robot_id)
             else if ( collision[robot_id] )
             {
                 switch (collision[robot_id]) {
-                    case 1:// 减速
-                    case 6:// 顺时针+顺时针：只减速
-                    case 7:// 减速+逆时针+顺时针：只减速
+                    case SLOW_DOWN:// 减速
+                    case ROTATE_CLOCKWISE | ROTATE_ANTI_CLOCKWISE:// 顺时针+顺时针：只减速
+                    case SLOW_DOWN | ROTATE_CLOCKWISE | ROTATE_ANTI_CLOCKWISE:// 减速+逆时针+顺时针：只减速
                     {
-                        res.push_back("forward " + to_string(robot_id) + " " + to_string(MAX_VELOCITY));
+                        // cerr << "SLOW_DOWN" << endl;
+                        res.push_back("forward " + to_string(robot_id) + " " + to_string(BASE_VELOCITY));
                         break;
                     }
-                    case 2:// 顺时针
-                    case 3:// 减速+顺时针
+                    case ROTATE_CLOCKWISE:// 顺时针
+                    case SLOW_DOWN | ROTATE_CLOCKWISE:// 减速+顺时针
                     {
+                    //     cerr << "ROTATE_CLOCKWISE" << endl;
                         res.push_back("forward " + to_string(robot_id) + " " + to_string(MAX_VELOCITY));
                         res.push_back("rotate " + to_string(robot_id) + " " + to_string(BASE_PALSTANCE));
                         break;
                     }
-                    case 4:// 逆时针
-                    case 5:// 减速+逆时针
+                    case ROTATE_ANTI_CLOCKWISE:// 逆时针
+                    case SLOW_DOWN | ROTATE_ANTI_CLOCKWISE:// 减速+逆时针
                     {
+                        // cerr << "ROTATE_ANTI_CLOCKWISE" << endl;
                         res.push_back("forward " + to_string(robot_id) + " " + to_string(MAX_VELOCITY));
                         res.push_back("rotate " + to_string(robot_id) + " " + to_string(-BASE_PALSTANCE));
                         break;
@@ -564,7 +611,14 @@ vector<string> setInsToDes(int robot_id)
             }
             else
             {
-                res.push_back("forward " + to_string(robot_id) + " " + to_string(MAX_VELOCITY));
+                // cerr << "MAX_VELOCITY" << endl;
+                if (distance < 1 && !IsZero(palstance))
+                {
+                    res.push_back("forward " + to_string(robot_id) + " 0");
+                }
+                else{
+                    res.push_back("forward " + to_string(robot_id) + " " + to_string(MAX_VELOCITY));
+                }
             }
 
             

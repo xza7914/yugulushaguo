@@ -7,37 +7,57 @@
 using namespace std;
 
 int workshop_num;
+int now_frame_id;
 struct Workshop workshops[55];
 struct Robot robots[4];
 
 // 由坐标计算出向量
-Vector operator-(Point a, Point b)
+Vector operator-(const Point &a, const Point &b)
 {
     return Vector(a.x_ - b.x_, a.y_ - b.y_);
 }
 
+// 向量放缩
+Vector operator*(const Vector &a, const double &b)
+{
+    return Vector(a.x_ * b, a.y_ * b);
+}
+
+// 点加向量
+Position operator+(const Point &a, const Vector &b)
+{
+    return Position(a.x_ + b.x_, a.y_ + b.y_);
+}
+
+// 判断浮点数是否近似为0
 double IsZero(double a) { return fabs(a) < EPS; }
 
 // 点积
-double Dot(Vector a, Vector b)
+double Dot(const Vector &a, const Vector &b)
 {
     return a.x_ * b.x_ + a.y_ * b.y_;
 }
 
 // 叉积
-double Cross(Vector a, Vector b)
+double Cross(const Vector &a, const Vector &b)
 {
     return a.x_ * b.y_ - a.y_ * b.x_;
 }
 
 // 向量长度
-double Length(Vector a)
+double Length(const Vector &a)
 {
     return sqrt(Dot(a, a));
 }
 
+// 获取单位向量
+Vector getUnitVector(const Vector &a) {
+    double t = 1 / Length(a);
+    return a * t;
+}
+
 // 两向量之间夹角
-double Angle(Vector a, Vector b)
+double Angle(const Vector &a, const Vector &b)
 {
     if (IsZero(Length(a)) || IsZero(Length(b)))
         return 0;
@@ -61,6 +81,7 @@ double Angle(Vector a, Vector b)
     return res;
 }
 
+// 获取某工作台的产品类型
 int getProductId(int workshop_id)
 {
     Workshop &workshop = workshops[workshop_id];
@@ -71,7 +92,7 @@ int getProductId(int workshop_id)
     return 0;
 }
 
-// 预定stuff
+// 预定原料
 void reserveStuff(int workshop_id, int stuff_id)
 {
     if (workshops[workshop_id].type_ >= 8)
@@ -80,7 +101,7 @@ void reserveStuff(int workshop_id, int stuff_id)
     workshops[workshop_id].reserve_stuff_status_ |= (1 << stuff_id);
 }
 
-// 取消预订
+// 取消预订原料
 void cancelReserveStuff(int workshop_id, int stuff_id)
 {
     if (workshops[workshop_id].type_ >= 8)
@@ -89,20 +110,21 @@ void cancelReserveStuff(int workshop_id, int stuff_id)
     workshops[workshop_id].reserve_stuff_status_ &= ~(1 << stuff_id);
 }
 
-// 预定product
+// 预定产品
 void reserveProduct(int workshop_id)
 {
     assert(workshops[workshop_id].reserve_product_status_ == 0);
     workshops[workshop_id].reserve_product_status_ = 1;
 }
 
-// 取消预订
+// 取消预订产品
 void cancelReserveProduct(int workshop_id)
 {
     assert(workshops[workshop_id].reserve_product_status_ == 1);
     workshops[workshop_id].reserve_product_status_ = 0;
 }
 
+// 获取某项工作的紧急程度
 int getUrgency(int workshop_id)
 {
     int res = 0;
@@ -114,6 +136,122 @@ int getUrgency(int workshop_id)
         t >>= 1;
     }
     return res;
+}
+
+// 预测某一帧时某机器人的位置与目标
+int predictPosAndDes(int robot_id, int frame_id, Position &pos, Position &des)
+{
+    if (frame_id == now_frame_id)
+    {
+        int des_id = getDestination(robot_id);
+        if (des_id == -1)
+            return -1;
+
+        pos = robots[robot_id].position_;
+        des = workshops[des_id].position_;
+        return 0;
+    }
+    else
+    {
+        int des_id = getDestination(robot_id);
+        if (des_id == -1)
+            return -1;
+
+        Position pos_1 = robots[robot_id].position_;
+        Position des_1 = workshops[des_id].position_;
+        Vector direction = des_1 - pos_1;
+        int frames_to_des = int(Length(direction) / 6 * 50 + 10);
+        int remain_frames = frame_id - now_frame_id;
+
+        if (remain_frames <= frames_to_des)
+        {
+            pos = pos_1 + getUnitVector(direction) * 6 * (remain_frames) * TIME_FRAME;
+            des = des_1;
+            return 0;
+
+        } else {
+            Task &task = robots[robot_id].task_;
+            if (task.stage_ == 2) return -1;
+
+            Position des_2 = workshops[task.sell_workshop_id_].position_;
+            remain_frames -= frames_to_des;
+            
+            if (remain_frames > int(Length(des_2 - des_1) / 6 * 50)) return -1;
+
+            pos = des_1 + getUnitVector(des_2 - des_1) * 6 * remain_frames * TIME_FRAME;
+            des = des_2;
+            return 0;
+        }
+    }
+}
+
+// 判断机器人是否会与其他机器人迎面相撞
+bool willCollideOther(int robot_id, struct Task &task)
+{
+
+    for (int j = 0; j < 4; ++j)
+    {
+        if (j == robot_id)
+            continue;
+
+        Position position_1, destination_1, position_2, destination_2;
+
+        int buy_from_id = task.buy_workshop_id_;
+        int sell_to_id = task.sell_workshop_id_;
+        int frame_id = now_frame_id;
+
+        position_1 = robots[robot_id].position_;
+        destination_1 = workshops[buy_from_id].position_;
+
+        auto willCollide = [&]() -> bool
+        {
+            if (predictPosAndDes(j, frame_id, position_2, destination_2) == 0)
+            {
+                double angle1 = Angle(destination_1 - position_1, destination_2 - position_2);
+                double angle2 = Angle(destination_1 - position_1, position_2 - position_1);
+                double angle3 = Angle(position_2 - position_1, destination_2 - destination_1);
+                if ((angle1 > PI - 0.2 || angle1 < -PI + 0.2) && fabs(angle2) < 0.2 && (angle3 > PI - 0.2 || angle3 < -PI + 0.2))
+                {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        if (willCollide())
+            return true;
+
+        frame_id = now_frame_id + int(Length(destination_1 - position_1) / 6 * 50 + 10);
+        position_1 = destination_1;
+        destination_1 = workshops[sell_to_id].position_;
+
+        if (willCollide())
+            return true;
+    }
+    return false;
+}
+
+// 判断某工作台是否能在到达之前准备好产品
+bool canProductReady(int workshop_id, double distance)
+{
+    struct Workshop &workshop = workshops[workshop_id];
+    if (workshop.reserve_product_status_)
+    {
+        return false;
+    }
+
+    if (workshop.product_status_)
+        return true;
+
+    if (workshop.remainder_produce_time_ > 0)
+    {
+        if (workshop.remainder_produce_time_ * TIME_FRAME * 6 < distance - 0.5)
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 // 判断当前 第workshop_id个工作台是否可以接收product_id号产品
@@ -171,7 +309,20 @@ bool canRecvStuff(int workshop_id, int product_id)
     return false;
 }
 
-// 初始化
+// 获取某个机器人此时的目的地, 若为空闲，则返回-1
+int getDestination(int robot_id)
+{
+    if (!robots[robot_id].has_task_)
+        return -1;
+    Task &task = robots[robot_id].task_;
+
+    if (task.stage_ == 1)
+        return task.buy_workshop_id_;
+    else
+        return task.sell_workshop_id_;
+}
+
+// 初始化并读入地图
 void init()
 {
     for (int i = 0; i < 4; ++i)
@@ -193,6 +344,12 @@ void init()
     cin >> s;
     assert(strcmp(s.c_str(), "OK") == 0);
     cout << "OK" << endl;
+}
+
+// 设置当前frame_id
+void setNowFrameId(int frame_id)
+{
+    now_frame_id = frame_id;
 }
 
 // 读取当前状态
@@ -229,7 +386,7 @@ void readAndSetStatus()
 }
 
 // 按照当前状态为机器人安排任务
-void getNextDes(int robot_id, int framd_id)
+void getNextDes(int robot_id)
 {
     struct Robot &robot = robots[robot_id];
     struct Task &task = robot.task_;
@@ -246,7 +403,9 @@ void getNextDes(int robot_id, int framd_id)
 
     for (int i = 0; i < workshop_num; ++i)
     {
-        if (!workshops[i].product_status_ || workshops[i].reserve_product_status_)
+        double distance = Length(workshops[i].position_ - robot.position_);
+
+        if (!canProductReady(i, distance))
             continue;
 
         int product_id = getProductId(i);
@@ -259,22 +418,33 @@ void getNextDes(int robot_id, int framd_id)
                                   Length(workshops[i].position_ - robot.position_);
 
                 // 计算剩余时间内机器人可行驶的最大距离，并排除掉不可能的任务。
-                double max_length = 5.0 * (MAX_FRAME_ID - framd_id) * TIME_FRAME;
+                double max_length = 5.0 * (MAX_FRAME_ID - now_frame_id) * TIME_FRAME;
                 if (max_length < distance)
                     continue;
 
                 // 优先级
                 double priority = INIT_PRIORITY;
                 priority += product_id * PRODUCT_ID;
+
                 if (product_id > 3)
-                    priority += LEVEL_1;
+                    priority += LEVEL;
+
                 if (product_id == 7)
-                    priority += LEVEL_2;
+                    priority += LEVEL;
+
                 priority += getUrgency(j) * URGENCY;
-                if (workshops[j].type_ == 9)
+
+                if (workshops[j].type_ == 9 && product_id != 7)
                     priority -= NINE_WORKSHOP;
 
-                priority = priority * 200 / distance;
+                Task task;
+                task.buy_workshop_id_ = i;
+                task.sell_workshop_id_ = j;
+                if (willCollideOther(robot_id, task)) {
+                    priority -= COLLIDE;
+                }
+
+                priority = priority / distance;
 
                 if (priority > max_priority)
                 {
@@ -292,6 +462,7 @@ void getNextDes(int robot_id, int framd_id)
         task.buy_workshop_id_ = buy_from;
         task.sell_workshop_id_ = sell_to;
         task.product_id_ = tar_product_id;
+        task.stage_ = 1;
         robot.has_task_ = true;
 
         reserveProduct(buy_from);
@@ -299,36 +470,29 @@ void getNextDes(int robot_id, int framd_id)
     }
 }
 
-vector<string> reduceCollide()
+// 避免撞墙
+void reduceCollideWall()
 {
-    vector<string> res;
     for (int i = 0; i < 4; ++i)
     {
-        for (int j = i + 1; j < 4; ++j)
+        Position new_position = robots[i].position_ + robots[i].linear_velocity_ * 0.5;
+        if (new_position.x_ < 0 || new_position.x_ > 50 || new_position.y_ < 0 || new_position.y_ > 50)
         {
-            double distance = Length(robots[i].position_ - robots[j].position_);
-            double angle = Angle(robots[i].linear_velocity_, robots[j].linear_velocity_);
-            if (distance < 2 && (angle > PI - 0.3 || angle < -PI + 0.3))
-            {
-                res.push_back("rotate " + to_string(i) + " 1");
-                res.push_back("rotate " + to_string(j) + " 1");
-            }
+            cout << "forward " + to_string(i) + " 3" << '\n';
         }
     }
-    return res;
 }
 
 // 为机器人设置具体指令
-vector<string> setInsToDes(int robot_id)
+void setInsToDes(int robot_id)
 {
     struct Robot &robot = robots[robot_id];
     struct Task &task = robot.task_;
-    vector<string> res;
 
     if (!robot.has_task_)
     {
-        res.push_back("forward " + to_string(robot_id) + " 0");
-        res.push_back("rotate " + to_string(robot_id) + " 0");
+        cout << "forward " + to_string(robot_id) + " 0" << '\n';
+        cout << "rotate " + to_string(robot_id) + " 0" << '\n';
     }
     else if (task.task_type_ == DESTROY)
     {
@@ -337,30 +501,23 @@ vector<string> setInsToDes(int robot_id)
     }
     else
     {
-        int target_workshop_id;
-
-        // 根据机器人此时是否携带产品，来判定任务的阶段。
-        if (robot.product_id_)
-        {
-            target_workshop_id = task.sell_workshop_id_;
-        }
-        else
-        {
-            target_workshop_id = task.buy_workshop_id_;
-        }
+        int target_workshop_id = getDestination(robot_id);
 
         if (target_workshop_id == robot.workshop_id_)
         {
-            if (robot.product_id_)
+            if (task.stage_ == 1)
             {
-                res.push_back("sell " + to_string(robot_id));
-                cancelReserveStuff(target_workshop_id, robot.product_id_);
-                robot.has_task_ = false;
+                cout << "buy " + to_string(robot_id) << '\n';
+                cancelReserveProduct(target_workshop_id);
+                task.stage_ = 2;
+                // 执行完购买指令后，立即前往售卖地
+                setInsToDes(robot_id);
             }
             else
             {
-                res.push_back("buy " + to_string(robot_id));
-                cancelReserveProduct(target_workshop_id);
+                cout << "sell " + to_string(robot_id) << '\n';
+                cancelReserveStuff(target_workshop_id, robot.product_id_);
+                robot.has_task_ = false;
             }
         }
         else
@@ -380,23 +537,28 @@ vector<string> setInsToDes(int robot_id)
 
             if (!IsZero(palstance))
             {
-                res.push_back("rotate " + to_string(robot_id) + " " + to_string(palstance));
+                cout << "rotate " + to_string(robot_id) + " " + to_string(palstance) << '\n';
             }
             else
             {
-                res.push_back("rotate " + to_string(robot_id) + " 0");
+                cout << "rotate " + to_string(robot_id) + " 0" << '\n';
             }
 
             if (Dot(robot.linear_velocity_, robot_to_workshop) < 0)
             {
-                res.push_back("forward " + to_string(robot_id) + " 0");
+                cout << "forward " + to_string(robot_id) + " 0" << '\n';
             }
             else
             {
-                res.push_back("forward " + to_string(robot_id) + " 6");
+                if (distance < 1 && !IsZero(palstance))
+                {
+                    cout << "forward " + to_string(robot_id) + " 0" << '\n';
+                }
+                else
+                {
+                    cout << "forward " + to_string(robot_id) + " 6" << '\n';
+                }
             }
         }
     }
-
-    return res;
 }

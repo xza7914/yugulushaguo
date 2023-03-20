@@ -54,6 +54,7 @@ struct Task
     int buy_workshop_id_;
     int sell_workshop_id_;
     int product_id_;
+    int stage_;
     TASK_TYPE task_type_;
 };
 
@@ -75,21 +76,61 @@ struct Robot
 };
 
 double IsZero(double);
-double Dot(Vector, Vector);
-double Length(Vector, Vector);
-double Angle(Vector, Vector);
+double Dot(const Vector &, const Vector &);
+double Cross(const Vector &, const Vector &);
+double Length(const Vector &, const Vector &);
+Vector getUnitVector(const Vector &);
+double Angle(const Vector &, const Vector &);
 
-void init();
+// 获取某工作台的产品类型
 int getProductId(int);
+
+// 预定原料
 void reserveStuff(int, int);
+
+// 取消预订原料
 void cancelReserveStuff(int, int);
+
+// 预定产品
 void reserveProduct(int);
+
+// 取消预订产品
 void cancelReserveProduct(int);
+
+// 获取某项工作的紧急程度
 int getUrgency(int);
+
+// 预测某一帧时某机器人的位置与目标
+int predictPosAndDes(int, int, Position &, Position &);
+
+// 判断机器人是否会与其他机器人迎面相撞
+bool willCollideOther(int, struct Task &);
+
+// 判断某工作台是否能在到达之前准备好产品
+bool canProductReady(int, double);
+
+// 判断当前 第workshop_id个工作台是否可以接收product_id号产品
 bool canRecvStuff(int, int);
+
+// 获取某个机器人此时的目的地
+int getDestination(int);
+
+// 初始化并读入地图
+void init();
+
+// 设置当前frame_id
+void setNowFrameId(int);
+
+// 读取当前状态
 void readAndSetStatus();
-vector<string> reduceCollide();
-void getNextDes(int, int);
-vector<string> setInsToDes(int);
+
+// 按照当前状态为机器人安排任务
+void getNextDes(int);
+
+// 避免撞墙
+void reduceCollideWall();
+
+// 为机器人设置具体指令
+void setInsToDes(int);
 
 #endif

@@ -454,6 +454,7 @@ pair<int,int> canCollideRobot(int robot1_id, int robot2_id){
         double relative_predict_x = predict_x2 - predict_x1; 
         double relative_predict_y = predict_y2 - predict_y1;
         double min_dis = PointToSegDist(0,0,relative_x,relative_y,relative_predict_x,relative_predict_y);
+        // cerr << min_dis << endl;
         if(min_dis > 2* RADIUS_ROBOT_CARRY)
             return pair<int,int> (NOTHING, NOTHING);
     }
@@ -461,18 +462,22 @@ pair<int,int> canCollideRobot(int robot1_id, int robot2_id){
         
 
     
-    //  0      ~  1/4 PI: robot1逆时针，robot2顺时针
-    if (angle > EPS && angle < (PI/4)) 
-        return pair<int,int> (ROTATE_ANTI_CLOCKWISE, ROTATE_CLOCKWISE);
+    // //  0      ~  1/4 PI: robot1逆时针，robot2顺时针
+    // if (angle > EPS && angle < (PI/4)) 
+    //     return pair<int,int> (ROTATE_ANTI_CLOCKWISE, ROTATE_CLOCKWISE);
     //  3/4 PI ~      PI: robot1逆时针，robot2逆时针
     if (angle > (PI/4)*3 && angle < PI )
-        return pair<int,int> (ROTATE_ANTI_CLOCKWISE, ROTATE_ANTI_CLOCKWISE);
-    //  0   PI ~ -1/4 PI: robot1顺时针，robot2逆时针
-    if (angle < EPS && angle < -(PI/4) )
-        return pair<int,int> (ROTATE_CLOCKWISE, ROTATE_ANTI_CLOCKWISE);
-    // -3/4 PI ~     -PI: robot1顺时针，robot2顺时针
-    if (angle < -(PI/4)*3 && angle > PI )
         return pair<int,int> (ROTATE_CLOCKWISE, ROTATE_CLOCKWISE);
+        // return pair<int,int> (ROTATE_ANTI_CLOCKWISE, ROTATE_ANTI_CLOCKWISE);
+    // //  0   PI ~ -1/4 PI: robot1顺时针，robot2逆时针
+    // if (angle < EPS && angle < -(PI/4) )
+    //     return pair<int,int> (ROTATE_CLOCKWISE, ROTATE_ANTI_CLOCKWISE);
+    // -3/4 PI ~     -PI: robot1顺时针，robot2顺时针
+    if (angle < -(PI/4)*3 && angle > -PI )
+        return pair<int,int> (ROTATE_ANTI_CLOCKWISE, ROTATE_ANTI_CLOCKWISE);
+        // return pair<int,int> (ROTATE_CLOCKWISE, ROTATE_CLOCKWISE);
+
+    // cerr << angle << endl;
 
     // 其余大角度 : robot1 减速
     return pair<int,int> (NOTHING, NOTHING);
@@ -729,53 +734,48 @@ void setInsToDes(int robot_id)
             //     // res.push_back("forward " + to_string(robot_id) + " " + to_string(BASE_VELOCITY));
             // }
             // 可能与汽车发生碰撞
-            // else if ( collision[robot_id] )
-            // {
-            //     switch (collision[robot_id]) {
-            //         case SLOW_DOWN:// 减速
-            //         case ROTATE_CLOCKWISE | ROTATE_ANTI_CLOCKWISE:// 顺时针+顺时针：只减速
-            //         case SLOW_DOWN | ROTATE_CLOCKWISE | ROTATE_ANTI_CLOCKWISE:// 减速+逆时针+顺时针：只减速
-            //         {
-            //             // cerr << "SLOW_DOWN" << endl;
-            //             res.push_back("forward " + to_string(robot_id) + " " + to_string(BASE_VELOCITY));
-            //             break;
-            //         }
-            //         case ROTATE_CLOCKWISE:// 顺时针
-            //         case SLOW_DOWN | ROTATE_CLOCKWISE:// 减速+顺时针
-            //         {
-            //         //     cerr << "ROTATE_CLOCKWISE" << endl;
-            //             res.push_back("forward " + to_string(robot_id) + " " + to_string(MAX_VELOCITY));
-            //             res.push_back("rotate " + to_string(robot_id) + " " + to_string(BASE_PALSTANCE));
-            //             break;
-            //         }
-            //         case ROTATE_ANTI_CLOCKWISE:// 逆时针
-            //         case SLOW_DOWN | ROTATE_ANTI_CLOCKWISE:// 减速+逆时针
-            //         {
-            //             // cerr << "ROTATE_ANTI_CLOCKWISE" << endl;
-            //             res.push_back("forward " + to_string(robot_id) + " " + to_string(MAX_VELOCITY));
-            //             res.push_back("rotate " + to_string(robot_id) + " " + to_string(-BASE_PALSTANCE));
-            //             break;
-            //         }
-            //         default: {
-            //             throw runtime_error("unexpected collision[i]");
-            //             break;
-            //         }
-                    
-            //     }
-            // }
             else
             {
                 if (distance < 1 && !IsZero(palstance))
                 {
                     cout << "forward " + to_string(robot_id) + " 0" << '\n';
                 }
-                else
-                {
+                else{
                     cout << "forward " + to_string(robot_id) + " 6" << '\n';
+                    // if ( collision[robot_id] )
+                    // {
+                    //     switch (collision[robot_id]) {
+                    //         // Now, it's impssible to slow down
+                    //         case SLOW_DOWN:// 减速
+                    //         case ROTATE_CLOCKWISE | ROTATE_ANTI_CLOCKWISE:// 顺时针+顺时针：只减速
+                    //         case SLOW_DOWN | ROTATE_CLOCKWISE | ROTATE_ANTI_CLOCKWISE:// 减速+逆时针+顺时针：只减速
+                    //         {
+                    //             // cerr << "SLOW_DOWN" << endl;
+                    //             cout << "forward " + to_string(robot_id) + " " + to_string(BASE_VELOCITY)<< '\n';
+                    //             break;
+                    //         }
+                    //         case ROTATE_CLOCKWISE:// 顺时针
+                    //         case SLOW_DOWN | ROTATE_CLOCKWISE:// 减速+顺时针
+                    //         {
+                    //             // cerr << "ROTATE_CLOCKWISE" << endl;
+                    //             cout << "rotate " + to_string(robot_id) + " " + to_string(BASE_PALSTANCE)<< '\n';
+                    //             break;
+                    //         }
+                    //         case ROTATE_ANTI_CLOCKWISE:// 逆时针
+                    //         case SLOW_DOWN | ROTATE_ANTI_CLOCKWISE:// 减速+逆时针
+                    //         {
+                    //             // cerr << "ROTATE_ANTI_CLOCKWISE" << endl;
+                    //             cout << "rotate " + to_string(robot_id) + " " + to_string(-BASE_PALSTANCE)<< '\n';
+                    //             break;
+                    //         }
+                    //         default: {
+                    //             throw runtime_error("unexpected collision[i]");
+                    //             break;
+                    //         }
+                    //     }
+                    // }
                 }
             }
-
-            
         }
     }
 }

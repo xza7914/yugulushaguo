@@ -1,10 +1,13 @@
 #include "head.h"
 #include "macro.h"
+#include "maps.h"
 #include <cassert>
 #include <stdexcept>
 #include <iostream>
 #include <cstring>
 using namespace std;
+
+// #define TIAOCAN
 
 int workshop_num;
 int now_frame_id;
@@ -52,7 +55,8 @@ double Length(const Vector &a)
 }
 
 // 获取单位向量
-Vector getUnitVector(const Vector &a) {
+Vector getUnitVector(const Vector &a)
+{
     double t = 1 / Length(a);
     return a * t;
 }
@@ -82,20 +86,29 @@ double Angle(const Vector &a, const Vector &b)
     return res;
 }
 
-/// @brief Judge if two line segments intersect. Cite: https://blog.csdn.net/qq_38210354/article/details/107495845
-bool isIntersect(double Ax1,double Ay1,double Ax2,double Ay2,double Bx1,double By1,double Bx2,double By2)
+// 字符串哈希，用于确定地图
+unsigned long long stringHash(const string &s, unsigned long long old)
 {
-    if(
-       ( max(Ax1,Ax2)>=min(Bx1,Bx2)&&min(Ax1,Ax2)<=max(Bx1,Bx2) )&&  //判断x轴投影
-       ( max(Ay1,Ay2)>=min(By1,By2)&&min(Ay1,Ay2)<=max(By1,By2) )    //判断y轴投影
-      )
+    for (auto x : s)
+        old = old * HASH_BASE + x;
+    return old;
+}
+
+/// @brief Judge if two line segments intersect. Cite: https://blog.csdn.net/qq_38210354/article/details/107495845
+bool isIntersect(double Ax1, double Ay1, double Ax2, double Ay2, double Bx1, double By1, double Bx2, double By2)
+{
+    if (
+        (max(Ax1, Ax2) >= min(Bx1, Bx2) && min(Ax1, Ax2) <= max(Bx1, Bx2)) && // 判断x轴投影
+        (max(Ay1, Ay2) >= min(By1, By2) && min(Ay1, Ay2) <= max(By1, By2))    // 判断y轴投影
+    )
     {
-        if(
-            ( (Bx1-Ax1)*(Ay2-Ay1)-(By1-Ay1)*(Ax2-Ax1) ) *          //判断B是否跨过A
-            ( (Bx2-Ax1)*(Ay2-Ay1)-(By2-Ay1)*(Ax2-Ax1) ) <=0 &&
-            ( (Ax1-Bx1)*(By2-By1)-(Ay1-By1)*(Bx2-Bx1) ) *          //判断A是否跨过B
-            ( (Ax2-Bx1)*(By2-By1)-(Ay2-By1)*(Bx2-Bx1) ) <=0
-          )
+        if (
+            ((Bx1 - Ax1) * (Ay2 - Ay1) - (By1 - Ay1) * (Ax2 - Ax1)) * // 判断B是否跨过A
+                    ((Bx2 - Ax1) * (Ay2 - Ay1) - (By2 - Ay1) * (Ax2 - Ax1)) <=
+                0 &&
+            ((Ax1 - Bx1) * (By2 - By1) - (Ay1 - By1) * (Bx2 - Bx1)) * // 判断A是否跨过B
+                    ((Ax2 - Bx1) * (By2 - By1) - (Ay2 - By1) * (Bx2 - Bx1)) <=
+                0)
         {
             return 1;
         }
@@ -206,18 +219,21 @@ int predictPosAndDes(int robot_id, int frame_id, Position &pos, Position &des)
 
         if (remain_frames <= frames_to_des)
         {
-            pos = pos_1 + getUnitVector(direction) * 6 * (remain_frames) * TIME_FRAME;
+            pos = pos_1 + getUnitVector(direction) * 6 * (remain_frames)*TIME_FRAME;
             des = des_1;
             return 0;
-
-        } else {
+        }
+        else
+        {
             Task &task = robots[robot_id].task_;
-            if (task.stage_ == 2) return -1;
+            if (task.stage_ == 2)
+                return -1;
 
             Position des_2 = workshops[task.sell_workshop_id_].position_;
             remain_frames -= frames_to_des;
-            
-            if (remain_frames > int(Length(des_2 - des_1) / 6 * 50)) return -1;
+
+            if (remain_frames > int(Length(des_2 - des_1) / 6 * 50))
+                return -1;
 
             pos = des_1 + getUnitVector(des_2 - des_1) * 6 * remain_frames * TIME_FRAME;
             des = des_2;
@@ -364,7 +380,8 @@ int getDestination(int robot_id)
 }
 
 /// @brief Predict that the robot may collide with the wall in `BASE_TIME` seconds.
-bool canCollideWall(int robot_id){
+bool canCollideWall(int robot_id)
+{
     struct Robot &robot = robots[robot_id];
     double x = robot.position_.x_;
     double y = robot.position_.y_;
@@ -374,10 +391,12 @@ bool canCollideWall(int robot_id){
     double predict_x = x + vx * BASE_TIME;
     double predict_y = x + vy * BASE_TIME;
 
-    if(predict_x > MAX_X || predict_x < EPS){
+    if (predict_x > MAX_X || predict_x < EPS)
+    {
         return true;
     }
-    if(predict_y > MAX_Y || predict_y < EPS){
+    if (predict_y > MAX_Y || predict_y < EPS)
+    {
         return true;
     }
     return false;
@@ -495,12 +514,62 @@ void init()
     // 设置随机数种子
     srand(time(0));
 
+    unsigned long long hash = 0;
+
     // 读入地图
     string s;
     for (int i = 0; i < 100; ++i)
     {
         cin >> s;
+        hash = stringHash(s, hash);
     }
+
+#ifdef TIAOCAN
+    // 调参时，所有地图共用参数
+#else
+    // 根据地图选择相应的参数
+    switch (hash)
+    {
+    case HASH_OF_MAP1:
+        INIT_PRIORITY = INIT_PRIORITY_1;
+        PRODUCT_ID = PRODUCT_ID_1;
+        LEVEL = LEVEL_1;
+        URGENCY = URGENCY_1;
+        NINE_WORKSHOP = NINE_WORKSHOP_1;
+        COLLIDE = COLLIDE_1;
+        break;
+
+    case HASH_OF_MAP2:
+        INIT_PRIORITY = INIT_PRIORITY_2;
+        PRODUCT_ID = PRODUCT_ID_2;
+        LEVEL = LEVEL_2;
+        URGENCY = URGENCY_2;
+        NINE_WORKSHOP = NINE_WORKSHOP_2;
+        COLLIDE = COLLIDE_2;
+        break;
+
+    case HASH_OF_MAP3:
+        INIT_PRIORITY = INIT_PRIORITY_3;
+        PRODUCT_ID = PRODUCT_ID_3;
+        LEVEL = LEVEL_3;
+        URGENCY = URGENCY_3;
+        NINE_WORKSHOP = NINE_WORKSHOP_3;
+        COLLIDE = COLLIDE_3;
+        break;
+
+    case HASH_OF_MAP4:
+        INIT_PRIORITY = INIT_PRIORITY_4;
+        PRODUCT_ID = PRODUCT_ID_4;
+        LEVEL = LEVEL_4;
+        URGENCY = URGENCY_4;
+        NINE_WORKSHOP = NINE_WORKSHOP_4;
+        COLLIDE = COLLIDE_4;
+        break;
+
+    default:
+        throw runtime_error("unexcepted map");
+    }
+#endif
 
     cin >> s;
     assert(strcmp(s.c_str(), "OK") == 0);
@@ -579,7 +648,7 @@ void getNextDes(int robot_id)
                                   Length(workshops[i].position_ - robot.position_);
 
                 // 计算剩余时间内机器人可行驶的最大距离，并排除掉不可能的任务。
-                double max_length = 5.0 * (MAX_FRAME_ID - now_frame_id) * TIME_FRAME;
+                double max_length = 6 * (MAX_FRAME_ID - now_frame_id - 20) * TIME_FRAME;
                 if (max_length < distance)
                     continue;
 
@@ -601,7 +670,8 @@ void getNextDes(int robot_id)
                 Task task;
                 task.buy_workshop_id_ = i;
                 task.sell_workshop_id_ = j;
-                if (willCollideOther(robot_id, task)) {
+                if (willCollideOther(robot_id, task))
+                {
                     priority -= COLLIDE;
                 }
 
@@ -647,7 +717,8 @@ void reduceCollideWall()
 /// @brief Pre-scan all robots collision status, and store to global collistion[robots][robots]
 void scanCollisionStatus()
 {
-    for (int i = 0; i < 4; i++){
+    for (int i = 0; i < 4; i++)
+    {
         collision[i] = 0;
     }
     for (int i = 0; i < 4; i++){
@@ -733,10 +804,10 @@ void setInsToDes(int robot_id)
             //     cerr << "may collide wall" << endl;
             //     // res.push_back("forward " + to_string(robot_id) + " " + to_string(BASE_VELOCITY));
             // }
-            // 可能与汽车发生碰撞
+            // 可能发生碰撞
             else
             {
-                if (distance < 1 && !IsZero(palstance))
+                if (distance < 1 && fabs(angle) > 0.3)
                 {
                     cout << "forward " + to_string(robot_id) + " 0" << '\n';
                 }

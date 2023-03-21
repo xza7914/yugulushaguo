@@ -19,6 +19,7 @@ const double BASE_VELOCITY = 4; // 预设最低速度（为0会导致永远停�
 const double BASE_PALSTANCE = 2; // 预设最低角速度
 const double BASE_TIME = 0.45; // 预设最低预测时间，低于则发出碰撞警告，需要减速/转向等措施干预
 const double BASE_DISTANCE = 2; // 预设最低距离碰撞限制，低于则发出碰撞警告，需要减速/转向等措施干预
+const unsigned long long HASH_BASE = 1331;
 
 
 const double MAX_X = 50;
@@ -104,7 +105,12 @@ double Angle(const Vector &, const Vector &);
 bool isIntersect(double,double,double,double,double,double,double,double);
 double PointToSegDist(double, double, double, double, double, double);
 
+// 字符串哈希，用于确定地图
+unsigned long long stringHash(const string &, unsigned long long);
+
+// 初始化
 void init();
+
 void scanCollisionStatus();
 // 获取某工作台的产品类型
 int getProductId(int);

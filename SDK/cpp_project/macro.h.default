@@ -1,11 +1,11 @@
 #ifndef __MACRO_H__
 #define __MACRO_H__
 
-const double INIT_PRIORITY = 1961.9052178536097;
-const double PRODUCT_ID = 426.15404608727334;
-const double LEVEL_1 = 1085.5862281536895;
-const double LEVEL_2 = 760.6924547864688;
-const double URGENCY = 943.2823047711075;
-const double NINE_WORKSHOP = 856.1206153247416;
+const double INIT_PRIORITY = 2970.2978319553326;
+const double PRODUCT_ID = 100;
+const double LEVEL = 346.95775877784627;
+const double URGENCY = 1100;
+const double NINE_WORKSHOP = 700;
+const double COLLIDE = 3700;
 
 #endif

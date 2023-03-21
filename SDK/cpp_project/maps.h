@@ -1,0 +1,38 @@
+
+#ifndef __MAPS_H__
+#define __MAPS_H__
+
+const unsigned long long HASH_OF_MAP1 = 12131215913955276400;
+const unsigned long long HASH_OF_MAP2 = 15635476494448729881;
+const unsigned long long HASH_OF_MAP3 = 5879990774259310974;
+const unsigned long long HASH_OF_MAP4 = 6599800287288332736;
+
+const double INIT_PRIORITY_1 = 2315.3393814430838;
+const double PRODUCT_ID_1 = 100;
+const double LEVEL_1 = 308.97510216815635;
+const double URGENCY_1 = 1892.777145655643;
+const double NINE_WORKSHOP_1 = 1559.8636102618239;
+const double COLLIDE_1 = 3108.112672914226;
+
+const double INIT_PRIORITY_2 = 1517.7979875821554;
+const double PRODUCT_ID_2 = 100;
+const double LEVEL_2 = 1886.4031760467067;
+const double URGENCY_2 = 2239.6107733998915;
+const double NINE_WORKSHOP_2 = 1616.4517986147728;
+const double COLLIDE_2 = 4478.710722005576;
+
+const double INIT_PRIORITY_3 = 2838.5942720181974;
+const double PRODUCT_ID_3 = 100;
+const double LEVEL_3 = 1348.9314124449418;
+const double URGENCY_3 = 314.66751834185544;
+const double NINE_WORKSHOP_3 = 1539.7143495351193;
+const double COLLIDE_3 = 4389.327859989;
+
+const double INIT_PRIORITY_4 = 2566.2391363250395;
+const double PRODUCT_ID_4 = 100;
+const double LEVEL_4 = 825.3743020091389;
+const double URGENCY_4 = 803.0027525764386;
+const double NINE_WORKSHOP_4 = 271.2106453664336;
+const double COLLIDE_4 = 2314.2086239244986;
+
+#endif

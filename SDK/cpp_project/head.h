@@ -14,6 +14,8 @@ const double PI = acos(-1);
 const double EPS = 1e-2;
 const double TIME_FRAME = 1.0 / 50;
 const int MAX_FRAME_ID = 9000;
+const unsigned long long HASH_BASE = 1331;
+
 const double MAX_VELOCITY= 6; // 预设最低速度（为0会导致永远停止）
 const double BASE_VELOCITY = 2; // 预设最低速度（为0会导致永远停止）
 const double BASE_PALSTANCE = 0.5; // 预设最低角速度
@@ -94,7 +96,12 @@ double Length(const Vector &, const Vector &);
 Vector getUnitVector(const Vector &);
 double Angle(const Vector &, const Vector &);
 
+// 字符串哈希，用于确定地图
+unsigned long long stringHash(const string &, unsigned long long);
+
+// 初始化
 void init();
+
 void scanCollisionStatus();
 // 获取某工作台的产品类型
 int getProductId(int);

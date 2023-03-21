@@ -3,6 +3,10 @@ build/
 
 /*.txt
 
-replay
+replay/
 
 .vscode/
+
+__pycache__/
+
+*.zip

@@ -14,17 +14,17 @@ for i in range(200):
     f.write("\n")
 
     init_priority = random.uniform(0, 3000)
-    f.write("const double INIT_PRIORITY = " + str(init_priority) + ";\n")
+    f.write("double INIT_PRIORITY = " + str(init_priority) + ";\n")
     product_id = 100
-    f.write("const double PRODUCT_ID = " + str(product_id) + ";\n")
+    f.write("double PRODUCT_ID = " + str(product_id) + ";\n")
     level = random.uniform(0, 2000)
-    f.write("const double LEVEL = " + str(level) + ";\n")
+    f.write("double LEVEL = " + str(level) + ";\n")
     urgency = random.uniform(0, 3000)
-    f.write("const double URGENCY = " + str(urgency) + ";\n")
+    f.write("double URGENCY = " + str(urgency) + ";\n")
     nine_workshop = random.uniform(0, 2000)
-    f.write("const double NINE_WORKSHOP = " + str(nine_workshop) + ";\n")
+    f.write("double NINE_WORKSHOP = " + str(nine_workshop) + ";\n")
     collide = random.uniform(0, 5000)
-    f.write("const double COLLIDE = " + str(collide) + ";\n")
+    f.write("double COLLIDE = " + str(collide) + ";\n")
 
     f.write("\n")
     f.write("#endif\n")

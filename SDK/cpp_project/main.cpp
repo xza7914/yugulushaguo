@@ -14,6 +14,7 @@ int main()
     {
         setNowFrameId(frameID);
         readAndSetStatus();
+        // cerr << frameID << '\n';
         if(frameID % COLLISION_DETECTION_FRAMES == 0)
             scanCollisionStatus();
         for (int i = 0; i < 4; ++i)

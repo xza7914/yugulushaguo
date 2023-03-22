@@ -433,19 +433,33 @@ pair<int,int> canCollideRobot(int robot1_id, int robot2_id){
     double vx2 = robot2.linear_velocity_.x_;
     double vy2 = robot2.linear_velocity_.y_;
     double angle = Angle({vx1, vy1}, {vx2, vy2});
+    double angle_direction = robot2.direction_ - robot1.direction_;
+    double relative_x = x2 - x1; 
+    double relative_y = y2 - y1; 
     double relative_vx = vx2 - vx1; 
     double relative_vy = vy2 - vy1; 
     double relative_v = sqrt((relative_vx*relative_vx) + (relative_vy*relative_vy)); 
+    double relative_dist = sqrt((relative_x*relative_x) + (relative_y*relative_y)); 
     double base_time = min(BASE_DISTANCE/relative_v, BASE_TIME);
     // cerr << base_time << endl;
     double predict_x1 = x1 + vx1 * base_time;
-    double predict_y1 = x1 + vy1 * base_time;
+    double predict_y1 = y1 + vy1 * base_time;
     double predict_x2 = x2 + vx2 * base_time;
-    double predict_y2 = x2 + vy2 * base_time;
+    double predict_y2 = y2 + vy2 * base_time;
     
-
+    // 碰撞恢复：朝向（而非速度）相反且为大角度，两机器人速度小，距离近。
+    bool cond_collision_recovery =  (relative_v < BASE_VELOCITY) &&
+                    (relative_dist < (3*RADIUS_ROBOT_CARRY) );
+    if (cond_collision_recovery){
+        cerr << "might colliation revocery" << endl;
+        if (angle_direction > (PI/4)*3 && angle_direction < PI )
+            return pair<int,int> (ROTATE_CLOCKWISE, ROTATE_CLOCKWISE);
+        if (angle_direction < -(PI/4)*3 && angle_direction > -PI )
+            return pair<int,int> (ROTATE_ANTI_CLOCKWISE, ROTATE_ANTI_CLOCKWISE);
+    }
     // 预测不碰撞条件1：预计轨道不相交
-    if( ! isIntersect(x1, y1, predict_x1, predict_y1, x2, y2, predict_y2, predict_y2) ){
+    bool cond_intersect =  isIntersect(x1, y1, predict_x1, predict_y1, x2, y2, predict_x2, predict_y2);
+    if( !cond_collision_recovery && !cond_intersect ){
         // cerr << "intersect:" << debugLineIntersect(x1, y1, predict_x1, predict_y1, x2, y2, predict_y2, predict_y2);
 
         // if(
@@ -468,17 +482,18 @@ pair<int,int> canCollideRobot(int robot1_id, int robot2_id){
         /*      考虑是否会因为半径而相碰，而非质心相碰。
                 方法：使用相对距离和相对速度，算出相对轨迹过程中最短距离
         */   
-        double relative_x = x2 - x1; 
-        double relative_y = y2 - y1; 
         double relative_predict_x = predict_x2 - predict_x1; 
         double relative_predict_y = predict_y2 - predict_y1;
         double min_dis = PointToSegDist(0,0,relative_x,relative_y,relative_predict_x,relative_predict_y);
-        // cerr << min_dis << endl;
         if(min_dis > 2* RADIUS_ROBOT_CARRY)
             return pair<int,int> (NOTHING, NOTHING);
+        // cerr << "Radius Collision" << endl;
+        // cerr << to_string(relative_x) + "," + to_string(relative_y) << endl;
+        // cerr << to_string(relative_predict_x) + "," + to_string(relative_predict_y) << endl;
     }
         
         
+    // cerr << "Collision Detected" << endl;
 
     
     // //  0      ~  1/4 PI: robot1逆时针，robot2顺时针
@@ -724,6 +739,7 @@ void scanCollisionStatus()
     for (int i = 0; i < 4; i++){
         for (int j = (i+1); j < 4 ; j++){
             pair<int,int> results = canCollideRobot(i, j);
+            // cerr << "collision:" << to_string(results.first) + "," +to_string(results.second) << endl;
             collision[i] |= results.first;
             collision[j] |= results.second;
         }
@@ -793,9 +809,10 @@ void setInsToDes(int robot_id)
                 cout << "rotate " + to_string(robot_id) + " 0" << '\n';
             }
 
-            // 目的工作台与速度反向：刹车
+            // 目的工作台与速度反向：刹车  (当严重对向碰撞发生的时候，该指令会使得被推倒的机器人无法主动恢复)
             if (Dot(robot.linear_velocity_, robot_to_workshop) < 0)
             {
+                // cerr << "forward " + to_string(robot_id) + " 0" << '\n';
                 cout << "forward " + to_string(robot_id) + " 0" << '\n';
             }
             // 可能与墙体发生碰撞：刹车
@@ -804,15 +821,16 @@ void setInsToDes(int robot_id)
             //     cerr << "may collide wall" << endl;
             //     // res.push_back("forward " + to_string(robot_id) + " " + to_string(BASE_VELOCITY));
             // }
-            // 可能发生碰撞
             else
             {
                 if (distance < 1 && fabs(angle) > 0.3)
                 {
+                    // cerr << "forward " + to_string(robot_id) + " 0" << '\n';
                     cout << "forward " + to_string(robot_id) + " 0" << '\n';
                 }
                 else{
                     cout << "forward " + to_string(robot_id) + " 6" << '\n';
+                    // 碰撞方案
                     // if ( collision[robot_id] )
                     // {
                     //     switch (collision[robot_id]) {
@@ -822,6 +840,7 @@ void setInsToDes(int robot_id)
                     //         case SLOW_DOWN | ROTATE_CLOCKWISE | ROTATE_ANTI_CLOCKWISE:// 减速+逆时针+顺时针：只减速
                     //         {
                     //             // cerr << "SLOW_DOWN" << endl;
+                    //             cerr << "forward " + to_string(robot_id) + " " + to_string(BASE_VELOCITY)<< '\n';
                     //             cout << "forward " + to_string(robot_id) + " " + to_string(BASE_VELOCITY)<< '\n';
                     //             break;
                     //         }
@@ -829,14 +848,16 @@ void setInsToDes(int robot_id)
                     //         case SLOW_DOWN | ROTATE_CLOCKWISE:// 减速+顺时针
                     //         {
                     //             // cerr << "ROTATE_CLOCKWISE" << endl;
-                    //             cout << "rotate " + to_string(robot_id) + " " + to_string(BASE_PALSTANCE)<< '\n';
+                    //             cerr << "rotate " + to_string(robot_id) + " " + to_string(-BASE_PALSTANCE)<< '\n';
+                    //             cout << "rotate " + to_string(robot_id) + " " + to_string(-BASE_PALSTANCE)<< '\n';
                     //             break;
                     //         }
                     //         case ROTATE_ANTI_CLOCKWISE:// 逆时针
                     //         case SLOW_DOWN | ROTATE_ANTI_CLOCKWISE:// 减速+逆时针
                     //         {
                     //             // cerr << "ROTATE_ANTI_CLOCKWISE" << endl;
-                    //             cout << "rotate " + to_string(robot_id) + " " + to_string(-BASE_PALSTANCE)<< '\n';
+                    //             cerr << "rotate " + to_string(robot_id) + " " + to_string(BASE_PALSTANCE)<< '\n';
+                    //             cout << "rotate " + to_string(robot_id) + " " + to_string(BASE_PALSTANCE)<< '\n';
                     //             break;
                     //         }
                     //         default: {

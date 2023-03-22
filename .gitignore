@@ -10,5 +10,3 @@ replay/
 __pycache__/
 
 *.zip
-
-.vs/

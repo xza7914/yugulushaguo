@@ -558,6 +558,7 @@ void init()
         URGENCY = URGENCY_1;
         NINE_WORKSHOP = NINE_WORKSHOP_1;
         COLLIDE = COLLIDE_1;
+        CUR_MAP = 1;
         break;
 
     case HASH_OF_MAP2:
@@ -567,6 +568,7 @@ void init()
         URGENCY = URGENCY_2;
         NINE_WORKSHOP = NINE_WORKSHOP_2;
         COLLIDE = COLLIDE_2;
+        CUR_MAP = 2;
         break;
 
     case HASH_OF_MAP3:
@@ -576,6 +578,7 @@ void init()
         URGENCY = URGENCY_3;
         NINE_WORKSHOP = NINE_WORKSHOP_3;
         COLLIDE = COLLIDE_3;
+        CUR_MAP = 3;
         break;
 
     case HASH_OF_MAP4:
@@ -585,6 +588,7 @@ void init()
         URGENCY = URGENCY_4;
         NINE_WORKSHOP = NINE_WORKSHOP_4;
         COLLIDE = COLLIDE_4;
+        CUR_MAP = 4;
         break;
 
     default:
@@ -887,9 +891,21 @@ void setInsToDes(int robot_id)
         }
 
         // 目的工作台与速度反向：刹车
-        if (Dot(robot.linear_velocity_, robot_to_workshop) < 0 || Dot(direction, robot_to_workshop) < 0)
+        if ((Dot(robot.linear_velocity_, robot_to_workshop) < 0 || Dot(direction, robot_to_workshop) < 0) && CUR_MAP == 1)
         {
             cout << "forward " + to_string(robot_id) + " 0" << '\n';
+        }
+        else if (Dot(robot.linear_velocity_, robot_to_workshop) < 0 && Dot(direction, robot_to_workshop) < 0 && (CUR_MAP == 2 || CUR_MAP == 3 || CUR_MAP == 4))
+        {
+            cout << "forward " + to_string(robot_id) + " -2" << '\n';
+        }
+        else if (Dot(robot.linear_velocity_, robot_to_workshop) < 0 && Dot(direction, robot_to_workshop) >= 0 && fabs(angle) > PI / 4 && (CUR_MAP == 2 || CUR_MAP == 3 || CUR_MAP == 4))
+        {
+            cout << "forward " + to_string(robot_id) + " 0" << '\n';
+        }
+        else if (Dot(robot.linear_velocity_, robot_to_workshop) < 0 && Dot(direction, robot_to_workshop) >= 0 && fabs(angle) <= PI / 4 && (CUR_MAP == 3 || CUR_MAP == 4))
+        {
+            cout << "forward " + to_string(robot_id) + " 6" << '\n';
         }
         else
         {

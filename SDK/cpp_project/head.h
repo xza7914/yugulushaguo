@@ -14,19 +14,25 @@ const double PI = acos(-1);
 const double EPS = 1e-2;
 const double TIME_FRAME = 1.0 / 50;
 const int MAX_FRAME_ID = 9000;
+const double MAX_VELOCITY = 6;
+const double BASE_VELOCITY = 4;  // 预设最低速度（为0会导致永远停止）
+const double BASE_PALSTANCE = 2; // 预设最低角速度
+const double BASE_TIME = 0.45;   // 预设最低预测时间，低于则发出碰撞警告，需要减速/转向等措施干预
+const double BASE_DISTANCE = 2;  // 预设最低距离碰撞限制，低于则发出碰撞警告，需要减速/转向等措施干预
 const unsigned long long HASH_BASE = 1331;
-
-const double MAX_VELOCITY= 6; // 预设最低速度（为0会导致永远停止）
-const double BASE_VELOCITY = 2; // 预设最低速度（为0会导致永远停止）
-const double BASE_PALSTANCE = 0.5; // 预设最低角速度
-const double BASE_TIME = 0.5; // 预设最低预测时间，低于则发出碰撞警告，需要减速/转向等措施干预
-const double BASE_DISTANCE = BASE_VELOCITY * BASE_TIME; // 预设最低距离碰撞限制，低于则发出碰撞警告，需要减速/转向等措施干预
-
 
 const double MAX_X = 50;
 const double MAX_Y = 50;
 const double RADIUS_ROBOT = 0.43;
 const double RADIUS_ROBOT_CARRY = 0.53;
+
+// 碰撞应急策略
+const int NOTHING = 0;
+const int SLOW_DOWN = 1 << 0;
+const int ROTATE_CLOCKWISE = 1 << 1;
+const int ROTATE_ANTI_CLOCKWISE = 1 << 2;
+// Collision Parameter
+const int COLLISION_DETECTION_FRAMES = 8; // Collision detection interval
 
 // 用于坐标计算
 struct Point
@@ -92,16 +98,17 @@ struct Robot
     Task task_;     // 当前机器人的任务类型
 };
 
-
 Vector operator-(const Point &, const Point &);
 Vector operator*(const Vector &, const double &);
 Position operator+(const Point &, const Vector &);
 double IsZero(double);
 double Dot(const Vector &, const Vector &);
 double Cross(const Vector &, const Vector &);
-double Length(const Vector&);
+double Length(const Vector &);
 Vector getUnitVector(const Vector &);
 double Angle(const Vector &, const Vector &);
+bool isIntersect(double, double, double, double, double, double, double, double);
+double PointToSegDist(double, double, double, double, double, double);
 
 // 字符串哈希，用于确定地图
 unsigned long long stringHash(const string &, unsigned long long);
@@ -150,14 +157,15 @@ void init();
 void setNowFrameId(int);
 
 // 判断是否会相撞
-bool willCollide(const Position&, const Position&, const Position&, const Position&);
+bool willCollide(const Position &, const Position &, const Position &, const Position &);
 
 // 计算临时目标点
 void getTempDes(const Position &, const Position &, Position &, Position &);
 
 bool canCollideWall(int);
 
-int canCollideRobot(int, int);
+pair<int, int> canCollideRobot(int, int);
+
 // 读取当前状态
 void readAndSetStatus();
 

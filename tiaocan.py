@@ -33,12 +33,12 @@ for i in range(200):
     t = grade.get_total_score()
 
     res.write(str(i) + " ==============================\n")
-    res.write("init_priority: " + str(init_priority) + "\n")
-    res.write("product_id: " + str(product_id) + "\n")
-    res.write("level: " + str(level) + "\n")
-    res.write("urgency: " + str(urgency) + "\n")
-    res.write("nine_workshop: " + str(nine_workshop) + ";\n")
-    res.write("collide: " + str(collide) + ";\n")
+    res.write("const double INIT_PRIORITY = " + str(init_priority) + ";\n")
+    res.write("const double PRODUCT_ID = " + str(product_id) + ";\n")
+    res.write("const double LEVEL = " + str(level) + ";\n")
+    res.write("const double URGENCY = " + str(urgency) + ";\n")
+    res.write("const double NINE_WORKSHOP = " + str(nine_workshop) + ";\n")
+    res.write("const double COLLIDE = " + str(collide) + ";\n")
     res.write("result: " + str(t) + "\n")
     res.flush()
 

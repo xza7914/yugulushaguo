@@ -14,9 +14,16 @@ int main()
     while (cin >> frameID >> money)
     {
         setNowFrameId(frameID);
+
         readAndSetStatus();
         if (frameID % 10 == 0)
+        {
+        }
+
+        // cerr << frameID << '\n';
+        if (frameID % COLLISION_DETECTION_FRAMES == 0)
             scanCollisionStatus();
+
         for (int i = 0; i < 4; ++i)
             getNextDes(i);
 

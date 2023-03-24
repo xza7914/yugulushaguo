@@ -1,13 +1,12 @@
 #include "head.h"
 #include "macro.h"
 #include "maps.h"
+#include "config.h"
 #include <cassert>
 #include <stdexcept>
 #include <iostream>
 #include <cstring>
 using namespace std;
-
-// #define TIAOCAN
 
 int workshop_num;
 int now_frame_id;
@@ -122,18 +121,19 @@ bool isIntersect(double Ax1, double Ay1, double Ax2, double Ay2, double Bx1, dou
 /// @brief Distance between point and the segment. Cite:https://blog.csdn.net/qq_28087491/article/details/119239974
 double PointToSegDist(double x, double y, double x1, double y1, double x2, double y2)
 {
-	double cross = (x2 - x1) * (x - x1) + (y2 - y1) * (y - y1);
-	if (cross <= 0) return sqrt((x - x1) * (x - x1) + (y - y1) * (y - y1));
-	  
-	double d2 = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
-	if (cross >= d2) return sqrt((x - x2) * (x - x2) + (y - y2) * (y - y2));
-	  
-	double r = cross / d2;
-	double px = x1 + (x2 - x1) * r;
-	double py = y1 + (y2 - y1) * r;
-	return sqrt((x - px) * (x - px) + (y - py) * (y - py));
-}
+    double cross = (x2 - x1) * (x - x1) + (y2 - y1) * (y - y1);
+    if (cross <= 0)
+        return sqrt((x - x1) * (x - x1) + (y - y1) * (y - y1));
 
+    double d2 = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
+    if (cross >= d2)
+        return sqrt((x - x2) * (x - x2) + (y - y2) * (y - y2));
+
+    double r = cross / d2;
+    double px = x1 + (x2 - x1) * r;
+    double py = y1 + (y2 - y1) * r;
+    return sqrt((x - px) * (x - px) + (y - py) * (y - py));
+}
 
 // 获取某工作台的产品类型
 int getProductId(int workshop_id)
@@ -192,6 +192,7 @@ int getUrgency(int workshop_id)
     return res;
 }
 
+#ifdef PREDICE_COLLIDE
 // 预测某一帧时某机器人的位置与目标
 int predictPosAndDes(int robot_id, int frame_id, Position &pos, Position &des)
 {
@@ -288,6 +289,8 @@ bool willCollideOther(int robot_id, struct Task &task)
     return false;
 }
 
+#endif
+
 // 判断某工作台是否能在到达之前准备好产品
 bool canProductReady(int workshop_id, double distance)
 {
@@ -373,7 +376,9 @@ int getDestination(int robot_id)
         return -1;
     Task &task = robots[robot_id].task_;
 
-    if (task.stage_ == 1)
+    if (task.has_temp_destination_)
+        return -2;
+    else if (task.stage_ == 1)
         return task.buy_workshop_id_;
     else
         return task.sell_workshop_id_;
@@ -402,7 +407,8 @@ bool canCollideWall(int robot_id)
     return false;
 }
 
-string debugLineIntersect(double Ax1,double Ay1,double Ax2,double Ay2,double Bx1,double By1,double Bx2,double By2){
+string debugLineIntersect(double Ax1, double Ay1, double Ax2, double Ay2, double Bx1, double By1, double Bx2, double By2)
+{
     string s;
     s += "(" + to_string(Ax1) + "," + to_string(Ay1) + ")";
     s += "(" + to_string(Ax2) + "," + to_string(Ay2) + ")";
@@ -417,7 +423,8 @@ string debugLineIntersect(double Ax1,double Ay1,double Ax2,double Ay2,double Bx1
         Make far robot Slow down when collide angle ranges 45~135
         Both avoid collide through turning angles when collide angle ranges 0~45 135~180 (Each for different directions)
 */
-pair<int,int> canCollideRobot(int robot1_id, int robot2_id){
+pair<int, int> canCollideRobot(int robot1_id, int robot2_id)
+{
     struct Robot &robot1 = robots[robot1_id];
     struct Robot &robot2 = robots[robot2_id];
     double x1 = robot1.position_.x_;
@@ -434,32 +441,34 @@ pair<int,int> canCollideRobot(int robot1_id, int robot2_id){
     double vy2 = robot2.linear_velocity_.y_;
     double angle = Angle({vx1, vy1}, {vx2, vy2});
     double angle_direction = robot2.direction_ - robot1.direction_;
-    double relative_x = x2 - x1; 
-    double relative_y = y2 - y1; 
-    double relative_vx = vx2 - vx1; 
-    double relative_vy = vy2 - vy1; 
-    double relative_v = sqrt((relative_vx*relative_vx) + (relative_vy*relative_vy)); 
-    double relative_dist = sqrt((relative_x*relative_x) + (relative_y*relative_y)); 
-    double base_time = min(BASE_DISTANCE/relative_v, BASE_TIME);
+    double relative_x = x2 - x1;
+    double relative_y = y2 - y1;
+    double relative_vx = vx2 - vx1;
+    double relative_vy = vy2 - vy1;
+    double relative_v = sqrt((relative_vx * relative_vx) + (relative_vy * relative_vy));
+    double relative_dist = sqrt((relative_x * relative_x) + (relative_y * relative_y));
+    double base_time = min(BASE_DISTANCE / relative_v, BASE_TIME);
     // cerr << base_time << endl;
     double predict_x1 = x1 + vx1 * base_time;
     double predict_y1 = y1 + vy1 * base_time;
     double predict_x2 = x2 + vx2 * base_time;
     double predict_y2 = y2 + vy2 * base_time;
-    
+
     // 碰撞恢复：朝向（而非速度）相反且为大角度，两机器人速度小，距离近。
-    bool cond_collision_recovery =  (relative_v < BASE_VELOCITY) &&
-                    (relative_dist < (3*RADIUS_ROBOT_CARRY) );
-    if (cond_collision_recovery){
+    bool cond_collision_recovery = (relative_v < BASE_VELOCITY) &&
+                                   (relative_dist < (3 * RADIUS_ROBOT_CARRY));
+    if (cond_collision_recovery)
+    {
         cerr << "might colliation revocery" << endl;
-        if (angle_direction > (PI/4)*3 && angle_direction < PI )
-            return pair<int,int> (ROTATE_CLOCKWISE, ROTATE_CLOCKWISE);
-        if (angle_direction < -(PI/4)*3 && angle_direction > -PI )
-            return pair<int,int> (ROTATE_ANTI_CLOCKWISE, ROTATE_ANTI_CLOCKWISE);
+        if (angle_direction > (PI / 4) * 3 && angle_direction < PI)
+            return pair<int, int>(ROTATE_CLOCKWISE, ROTATE_CLOCKWISE);
+        if (angle_direction < -(PI / 4) * 3 && angle_direction > -PI)
+            return pair<int, int>(ROTATE_ANTI_CLOCKWISE, ROTATE_ANTI_CLOCKWISE);
     }
     // 预测不碰撞条件1：预计轨道不相交
-    bool cond_intersect =  isIntersect(x1, y1, predict_x1, predict_y1, x2, y2, predict_x2, predict_y2);
-    if( !cond_collision_recovery && !cond_intersect ){
+    bool cond_intersect = isIntersect(x1, y1, predict_x1, predict_y1, x2, y2, predict_x2, predict_y2);
+    if (!cond_collision_recovery && !cond_intersect)
+    {
         // cerr << "intersect:" << debugLineIntersect(x1, y1, predict_x1, predict_y1, x2, y2, predict_y2, predict_y2);
 
         // if(
@@ -477,44 +486,41 @@ pair<int,int> canCollideRobot(int robot1_id, int robot2_id){
         //     return 0;
         // }
 
-        
         // 预测不碰撞条件2：预计轨道间最短距离大于直径
         /*      考虑是否会因为半径而相碰，而非质心相碰。
                 方法：使用相对距离和相对速度，算出相对轨迹过程中最短距离
-        */   
-        double relative_predict_x = predict_x2 - predict_x1; 
+        */
+        double relative_predict_x = predict_x2 - predict_x1;
         double relative_predict_y = predict_y2 - predict_y1;
-        double min_dis = PointToSegDist(0,0,relative_x,relative_y,relative_predict_x,relative_predict_y);
-        if(min_dis > 2* RADIUS_ROBOT_CARRY)
-            return pair<int,int> (NOTHING, NOTHING);
+        double min_dis = PointToSegDist(0, 0, relative_x, relative_y, relative_predict_x, relative_predict_y);
+        if (min_dis > 2 * RADIUS_ROBOT_CARRY)
+            return pair<int, int>(NOTHING, NOTHING);
         // cerr << "Radius Collision" << endl;
         // cerr << to_string(relative_x) + "," + to_string(relative_y) << endl;
         // cerr << to_string(relative_predict_x) + "," + to_string(relative_predict_y) << endl;
     }
-        
-        
+
     // cerr << "Collision Detected" << endl;
 
-    
     // //  0      ~  1/4 PI: robot1逆时针，robot2顺时针
-    // if (angle > EPS && angle < (PI/4)) 
+    // if (angle > EPS && angle < (PI/4))
     //     return pair<int,int> (ROTATE_ANTI_CLOCKWISE, ROTATE_CLOCKWISE);
     //  3/4 PI ~      PI: robot1逆时针，robot2逆时针
-    if (angle > (PI/4)*3 && angle < PI )
-        return pair<int,int> (ROTATE_CLOCKWISE, ROTATE_CLOCKWISE);
-        // return pair<int,int> (ROTATE_ANTI_CLOCKWISE, ROTATE_ANTI_CLOCKWISE);
+    if (angle > (PI / 4) * 3 && angle < PI)
+        return pair<int, int>(ROTATE_CLOCKWISE, ROTATE_CLOCKWISE);
+    // return pair<int,int> (ROTATE_ANTI_CLOCKWISE, ROTATE_ANTI_CLOCKWISE);
     // //  0   PI ~ -1/4 PI: robot1顺时针，robot2逆时针
     // if (angle < EPS && angle < -(PI/4) )
     //     return pair<int,int> (ROTATE_CLOCKWISE, ROTATE_ANTI_CLOCKWISE);
     // -3/4 PI ~     -PI: robot1顺时针，robot2顺时针
-    if (angle < -(PI/4)*3 && angle > -PI )
-        return pair<int,int> (ROTATE_ANTI_CLOCKWISE, ROTATE_ANTI_CLOCKWISE);
-        // return pair<int,int> (ROTATE_CLOCKWISE, ROTATE_CLOCKWISE);
+    if (angle < -(PI / 4) * 3 && angle > -PI)
+        return pair<int, int>(ROTATE_ANTI_CLOCKWISE, ROTATE_ANTI_CLOCKWISE);
+    // return pair<int,int> (ROTATE_CLOCKWISE, ROTATE_CLOCKWISE);
 
     // cerr << angle << endl;
 
     // 其余大角度 : robot1 减速
-    return pair<int,int> (NOTHING, NOTHING);
+    return pair<int, int>(NOTHING, NOTHING);
 }
 
 // 初始化并读入地图
@@ -685,10 +691,13 @@ void getNextDes(int robot_id)
                 Task task;
                 task.buy_workshop_id_ = i;
                 task.sell_workshop_id_ = j;
+
+#ifdef PREDICE_COLLIDE
                 if (willCollideOther(robot_id, task))
                 {
                     priority -= COLLIDE;
                 }
+#endif
 
                 priority = priority / distance;
 
@@ -716,8 +725,58 @@ void getNextDes(int robot_id)
     }
 }
 
+// 避免碰撞
+// 通过设置临时目标点
+void avoidCollide()
+{
+    for (int i = 0; i < 4; ++i)
+    {
+        for (int j = i + 1; j < 4; ++j)
+        {
+            if (!robots[i].has_task_ || !robots[j].has_task_)
+            {
+                continue;
+            }
+
+            if (robots[i].task_.has_temp_destination_ || robots[j].task_.has_temp_destination_)
+            {
+                continue;
+            }
+
+            Position pos1 = robots[i].position_;
+            Position pos2 = robots[j].position_;
+
+            if (Length(pos1 - pos2) > 5)
+                continue;
+
+            int des_id1 = getDestination(i);
+            int des_id2 = getDestination(j);
+
+            Position des1;
+            Position des2;
+
+            if (des_id1 == -2)
+                des1 = robots[i].task_.temp_destination_;
+            else
+                des1 = workshops[des_id1].position_;
+
+            if (des_id2 == -2)
+                des2 = robots[j].task_.temp_destination_;
+            else
+                des2 = workshops[des_id2].position_;
+
+            if (willCollide(pos1, des1, pos2, des2))
+            {
+                robots[i].task_.has_temp_destination_ = true;
+                robots[j].task_.has_temp_destination_ = true;
+                getTempDes(pos1, pos2, robots[i].task_.temp_destination_, robots[j].task_.temp_destination_);
+            }
+        }
+    }
+}
+
 // 避免撞墙
-void reduceCollideWall()
+void avoidCollideWall()
 {
     for (int i = 0; i < 4; ++i)
     {
@@ -736,9 +795,11 @@ void scanCollisionStatus()
     {
         collision[i] = 0;
     }
-    for (int i = 0; i < 4; i++){
-        for (int j = (i+1); j < 4 ; j++){
-            pair<int,int> results = canCollideRobot(i, j);
+    for (int i = 0; i < 4; i++)
+    {
+        for (int j = (i + 1); j < 4; j++)
+        {
+            pair<int, int> results = canCollideRobot(i, j);
             // cerr << "collision:" << to_string(results.first) + "," +to_string(results.second) << endl;
             collision[i] |= results.first;
             collision[j] |= results.second;
@@ -765,52 +826,74 @@ void setInsToDes(int robot_id)
     else
     {
         int target_workshop_id = getDestination(robot_id);
+        Position destination;
 
-        if (target_workshop_id == robot.workshop_id_)
+        if (target_workshop_id == -2)
         {
-            if (task.stage_ == 1)
+            destination = task.temp_destination_;
+
+            if (Length(destination - robot.position_) < 0.3)
             {
-                cout << "buy " + to_string(robot_id) << '\n';
-                cancelReserveProduct(target_workshop_id);
-                task.stage_ = 2;
-                // 执行完购买指令后，立即前往售卖地
+                task.has_temp_destination_ = false;
                 setInsToDes(robot_id);
-            }
-            else
-            {
-                cout << "sell " + to_string(robot_id) << '\n';
-                cancelReserveStuff(target_workshop_id, robot.product_id_);
-                robot.has_task_ = false;
+                return;
             }
         }
         else
         {
-            // 操作：前往工作台
-            int workshop_id = target_workshop_id;
+            destination = workshops[target_workshop_id].position_;
 
-            Vector direction = Vector(cos(robot.direction_), sin(robot.direction_));
-            Vector robot_to_workshop = workshops[workshop_id].position_ - robot.position_;
-
-            // 策略：若非直线前往工作台，需要转向。
-            double angle = Angle(direction, robot_to_workshop);
-            double distance = Length(robot_to_workshop);
-            double palstance = 0;
-            if (!IsZero(angle))
+            if (target_workshop_id == robot.workshop_id_)
             {
-                palstance = angle / TIME_FRAME;
-            }
+                if (task.stage_ == 1)
+                {
+                    cout << "buy " + to_string(robot_id) << '\n';
+                    cancelReserveProduct(target_workshop_id);
+                    task.stage_ = 2;
+                    // 执行完购买指令后，立即前往售卖地
+                    setInsToDes(robot_id);
+                }
+                else
+                {
+                    cout << "sell " + to_string(robot_id) << '\n';
+                    cancelReserveStuff(target_workshop_id, robot.product_id_);
+                    robot.has_task_ = false;
+                }
 
-            if (!IsZero(palstance))
-            {
-                cout << "rotate " + to_string(robot_id) + " " + to_string(palstance) << '\n';
+                return;
             }
-            else
-            {
-                cout << "rotate " + to_string(robot_id) + " 0" << '\n';
-            }
+        }
 
-            // 目的工作台与速度反向：刹车  (当严重对向碰撞发生的时候，该指令会使得被推倒的机器人无法主动恢复)
-            if (Dot(robot.linear_velocity_, robot_to_workshop) < 0)
+        // 操作：前往工作台
+        Vector direction = Vector(cos(robot.direction_), sin(robot.direction_));
+        Vector robot_to_workshop = destination - robot.position_;
+
+        // 策略：若非直线前往工作台，需要转向。
+        double angle = Angle(direction, robot_to_workshop);
+        double distance = Length(robot_to_workshop);
+        double palstance = 0;
+        if (!IsZero(angle))
+        {
+            palstance = angle / TIME_FRAME;
+        }
+
+        if (!IsZero(palstance))
+        {
+            cout << "rotate " + to_string(robot_id) + " " + to_string(palstance) << '\n';
+        }
+        else
+        {
+            cout << "rotate " + to_string(robot_id) + " 0" << '\n';
+        }
+
+        // 目的工作台与速度反向：刹车
+        if (Dot(robot.linear_velocity_, robot_to_workshop) < 0 || Dot(direction, robot_to_workshop) < 0)
+        {
+            cout << "forward " + to_string(robot_id) + " 0" << '\n';
+        }
+        else
+        {
+            if (Length(robot_to_workshop) < 1 && fabs(angle) > PI / 4)
             {
                 // cerr << "forward " + to_string(robot_id) + " 0" << '\n';
                 cout << "forward " + to_string(robot_id) + " 0" << '\n';
@@ -823,12 +906,15 @@ void setInsToDes(int robot_id)
             // }
             else
             {
-                if (distance < 1 && fabs(angle) > 0.3)
+                // 目标点靠墙，则提前减速
+                if ((destination.x_ < 2 || destination.x_ > 48 ||
+                     destination.y_ < 2 || destination.y_ > 48) &&
+                    Length(robot_to_workshop) < 1)
                 {
-                    // cerr << "forward " + to_string(robot_id) + " 0" << '\n';
-                    cout << "forward " + to_string(robot_id) + " 0" << '\n';
+                    cout << "forward " + to_string(robot_id) + " 2" << '\n';
                 }
-                else{
+                else
+                {
                     cout << "forward " + to_string(robot_id) + " 6" << '\n';
                     // 碰撞方案
                     // if ( collision[robot_id] )

@@ -1,13 +1,12 @@
 #include "head.h"
 #include "macro.h"
 #include "maps.h"
+#include "config.h"
 #include <cassert>
 #include <stdexcept>
 #include <iostream>
 #include <cstring>
 using namespace std;
-
-// #define TIAOCAN
 
 int workshop_num;
 int now_frame_id;
@@ -176,6 +175,7 @@ int getUrgency(int workshop_id)
     return res;
 }
 
+#ifdef PREDICE_COLLIDE
 // 预测某一帧时某机器人的位置与目标
 int predictPosAndDes(int robot_id, int frame_id, Position &pos, Position &des)
 {
@@ -272,6 +272,8 @@ bool willCollideOther(int robot_id, struct Task &task)
     return false;
 }
 
+#endif
+
 // 判断某工作台是否能在到达之前准备好产品
 bool canProductReady(int workshop_id, double distance)
 {
@@ -357,7 +359,9 @@ int getDestination(int robot_id)
         return -1;
     Task &task = robots[robot_id].task_;
 
-    if (task.stage_ == 1)
+    if (task.has_temp_destination_)
+        return -2;
+    else if (task.stage_ == 1)
         return task.buy_workshop_id_;
     else
         return task.sell_workshop_id_;
@@ -606,10 +610,13 @@ void getNextDes(int robot_id)
                 Task task;
                 task.buy_workshop_id_ = i;
                 task.sell_workshop_id_ = j;
+
+#ifdef PREDICE_COLLIDE
                 if (willCollideOther(robot_id, task))
                 {
                     priority -= COLLIDE;
                 }
+#endif
 
                 priority = priority / distance;
 
@@ -637,8 +644,58 @@ void getNextDes(int robot_id)
     }
 }
 
+// 避免碰撞
+// 通过设置临时目标点
+void avoidCollide()
+{
+    for (int i = 0; i < 4; ++i)
+    {
+        for (int j = i + 1; j < 4; ++j)
+        {
+            if (!robots[i].has_task_ || !robots[j].has_task_)
+            {
+                continue;
+            }
+
+            if (robots[i].task_.has_temp_destination_ || robots[j].task_.has_temp_destination_)
+            {
+                continue;
+            }
+
+            Position pos1 = robots[i].position_;
+            Position pos2 = robots[j].position_;
+
+            if (Length(pos1 - pos2) > 5)
+                continue;
+
+            int des_id1 = getDestination(i);
+            int des_id2 = getDestination(j);
+
+            Position des1;
+            Position des2;
+
+            if (des_id1 == -2)
+                des1 = robots[i].task_.temp_destination_;
+            else
+                des1 = workshops[des_id1].position_;
+
+            if (des_id2 == -2)
+                des2 = robots[j].task_.temp_destination_;
+            else
+                des2 = workshops[des_id2].position_;
+
+            if (willCollide(pos1, des1, pos2, des2))
+            {
+                robots[i].task_.has_temp_destination_ = true;
+                robots[j].task_.has_temp_destination_ = true;
+                getTempDes(pos1, pos2, robots[i].task_.temp_destination_, robots[j].task_.temp_destination_);
+            }
+        }
+    }
+}
+
 // 避免撞墙
-void reduceCollideWall()
+void avoidCollideWall()
 {
     for (int i = 0; i < 4; ++i)
     {
@@ -699,60 +756,85 @@ void setInsToDes(int robot_id)
     else
     {
         int target_workshop_id = getDestination(robot_id);
+        Position destination;
 
-        if (target_workshop_id == robot.workshop_id_)
+        if (target_workshop_id == -2)
         {
-            if (task.stage_ == 1)
+            destination = task.temp_destination_;
+
+            if (Length(destination - robot.position_) < 0.3)
             {
-                cout << "buy " + to_string(robot_id) << '\n';
-                cancelReserveProduct(target_workshop_id);
-                task.stage_ = 2;
-                // 执行完购买指令后，立即前往售卖地
+                task.has_temp_destination_ = false;
                 setInsToDes(robot_id);
-            }
-            else
-            {
-                cout << "sell " + to_string(robot_id) << '\n';
-                cancelReserveStuff(target_workshop_id, robot.product_id_);
-                robot.has_task_ = false;
+                return;
             }
         }
         else
         {
-            // 操作：前往工作台
-            int workshop_id = target_workshop_id;
+            destination = workshops[target_workshop_id].position_;
 
-            Vector direction = Vector(cos(robot.direction_), sin(robot.direction_));
-            Vector robot_to_workshop = workshops[workshop_id].position_ - robot.position_;
-
-            // 策略：若非直线前往工作台，需要转向。
-            double angle = Angle(direction, robot_to_workshop);
-            double distance = Length(robot_to_workshop);
-            double palstance = 0;
-            if (!IsZero(angle))
+            if (target_workshop_id == robot.workshop_id_)
             {
-                palstance = angle / TIME_FRAME;
-            }
+                if (task.stage_ == 1)
+                {
+                    cout << "buy " + to_string(robot_id) << '\n';
+                    cancelReserveProduct(target_workshop_id);
+                    task.stage_ = 2;
+                    // 执行完购买指令后，立即前往售卖地
+                    setInsToDes(robot_id);
+                }
+                else
+                {
+                    cout << "sell " + to_string(robot_id) << '\n';
+                    cancelReserveStuff(target_workshop_id, robot.product_id_);
+                    robot.has_task_ = false;
+                }
 
-            if (!IsZero(palstance))
-            {
-                cout << "rotate " + to_string(robot_id) + " " + to_string(palstance) << '\n';
+                return;
             }
-            else
-            {
-                cout << "rotate " + to_string(robot_id) + " 0" << '\n';
-            }
+        }
 
-            // 目的工作台与速度反向：刹车
-            if (Dot(robot.linear_velocity_, robot_to_workshop) < 0)
+        // 操作：前往工作台
+        Vector direction = Vector(cos(robot.direction_), sin(robot.direction_));
+        Vector robot_to_workshop = destination - robot.position_;
+
+        // 策略：若非直线前往工作台，需要转向。
+        double angle = Angle(direction, robot_to_workshop);
+        double distance = Length(robot_to_workshop);
+        double palstance = 0;
+        if (!IsZero(angle))
+        {
+            palstance = angle / TIME_FRAME;
+        }
+
+        if (!IsZero(palstance))
+        {
+            cout << "rotate " + to_string(robot_id) + " " + to_string(palstance) << '\n';
+        }
+        else
+        {
+            cout << "rotate " + to_string(robot_id) + " 0" << '\n';
+        }
+
+        // 目的工作台与速度反向：刹车
+        if (Dot(robot.linear_velocity_, robot_to_workshop) < 0 || Dot(direction, robot_to_workshop) < 0)
+        {
+            cout << "forward " + to_string(robot_id) + " 0" << '\n';
+        }
+        else
+        {
+            if (Length(robot_to_workshop) < 1 && fabs(angle) > PI / 4)
             {
                 cout << "forward " + to_string(robot_id) + " 0" << '\n';
             }
             else
             {
-                if (distance < 1 && fabs(angle) > 0.3)
+                // 目标点靠墙，则提前减速
+                if ((destination.x_ < 2 || destination.x_ > 48 ||
+                     destination.y_ < 2 || destination.y_ > 48) &&
+                    Length(robot_to_workshop) < 1)
                 {
-                    cout << "forward " + to_string(robot_id) + " 0" << '\n';
+                    cout << "forward " + to_string(robot_id) + " 2" << '\n';
                 }
                 else
                 {

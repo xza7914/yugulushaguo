@@ -69,6 +69,9 @@ struct Task
     int sell_workshop_id_;
     int product_id_;
     int stage_;
+
+    bool has_temp_destination_;
+    Position temp_destination_;
     TASK_TYPE task_type_;
 };
 
@@ -89,10 +92,14 @@ struct Robot
     Task task_;     // 当前机器人的任务类型
 };
 
+
+Vector operator-(const Point &, const Point &);
+Vector operator*(const Vector &, const double &);
+Position operator+(const Point &, const Vector &);
 double IsZero(double);
 double Dot(const Vector &, const Vector &);
 double Cross(const Vector &, const Vector &);
-double Length(const Vector &, const Vector &);
+double Length(const Vector&);
 Vector getUnitVector(const Vector &);
 double Angle(const Vector &, const Vector &);
 
@@ -142,7 +149,14 @@ void init();
 // 设置当前frame_id
 void setNowFrameId(int);
 
+// 判断是否会相撞
+bool willCollide(const Position&, const Position&, const Position&, const Position&);
+
+// 计算临时目标点
+void getTempDes(const Position &, const Position &, Position &, Position &);
+
 bool canCollideWall(int);
+
 int canCollideRobot(int, int);
 // 读取当前状态
 void readAndSetStatus();
@@ -150,8 +164,11 @@ void readAndSetStatus();
 // 按照当前状态为机器人安排任务
 void getNextDes(int);
 
+// 避免碰撞
+void avoidCollide();
+
 // 避免撞墙
-void reduceCollideWall();
+void avoidCollideWall();
 
 // 为机器人设置具体指令
 void setInsToDes(int);

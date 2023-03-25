@@ -7,7 +7,7 @@
 #include <cstring>
 using namespace std;
 
-// #define TIAOCAN
+#define TIAOCAN
 
 int workshop_num;
 int now_frame_id;
@@ -451,7 +451,9 @@ pair<int,int> canCollideRobot(int robot1_id, int robot2_id){
     bool cond_collision_recovery =  (relative_v < BASE_VELOCITY) &&
                     (relative_dist < (3*RADIUS_ROBOT_CARRY) );
     if (cond_collision_recovery){
-        cerr << "might colliation revocery" << endl;
+        // cerr << "might colliation revocery" << endl;
+        // cerr << relative_vx << endl;
+        // cerr << relative_vy << endl;
         if (angle_direction > (PI/4)*3 && angle_direction < PI )
             return pair<int,int> (ROTATE_CLOCKWISE, ROTATE_CLOCKWISE);
         if (angle_direction < -(PI/4)*3 && angle_direction > -PI )
@@ -487,6 +489,8 @@ pair<int,int> canCollideRobot(int robot1_id, int robot2_id){
         double min_dis = PointToSegDist(0,0,relative_x,relative_y,relative_predict_x,relative_predict_y);
         if(min_dis > 2* RADIUS_ROBOT_CARRY)
             return pair<int,int> (NOTHING, NOTHING);
+        // Use mass distance and velocity angle instead.
+        angle = Angle({relative_x, relative_y}, {vx2, vy2});
         // cerr << "Radius Collision" << endl;
         // cerr << to_string(relative_x) + "," + to_string(relative_y) << endl;
         // cerr << to_string(relative_predict_x) + "," + to_string(relative_predict_y) << endl;
@@ -834,7 +838,7 @@ void setInsToDes(int robot_id)
                     // if ( collision[robot_id] )
                     // {
                     //     switch (collision[robot_id]) {
-                    //         // Now, it's impssible to slow down
+                    //         // Now, it's almost impssible to slow down
                     //         case SLOW_DOWN:// 减速
                     //         case ROTATE_CLOCKWISE | ROTATE_ANTI_CLOCKWISE:// 顺时针+顺时针：只减速
                     //         case SLOW_DOWN | ROTATE_CLOCKWISE | ROTATE_ANTI_CLOCKWISE:// 减速+逆时针+顺时针：只减速

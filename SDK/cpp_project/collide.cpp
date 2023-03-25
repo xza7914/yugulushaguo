@@ -9,6 +9,9 @@ bool willCollide(const Position &pos1, const Position &des1, const Position &pos
     Vector direction1 = des1 - pos1;
     Vector direction2 = des2 - pos2;
 
+    // 夹角为锐角，直接跳过
+    if (Dot(direction1, direction2) > 0) return false;
+
     double len1 = Length(direction1) - 0.4;
     double len2 = Length(direction2) - 0.4;
 

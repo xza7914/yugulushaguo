@@ -13,6 +13,7 @@ int now_frame_id;
 struct Workshop workshops[55];
 struct Robot robots[4];
 int collision[4];
+unsigned long long hash_code;
 
 // 由坐标计算出向量
 Vector operator-(const Point &a, const Point &b)
@@ -189,7 +190,41 @@ int getUrgency(int workshop_id)
             ++res;
         t >>= 1;
     }
-    return res;
+
+    // 加入了隐藏紧急性
+    // 例如7号台有5号和6号，那么“送往4号台”（注意与“从4号台取”区分）的紧急性也会提高。
+    int hide_urgency = 0;
+
+    int type = workshops[workshop_id].type_;
+
+    if (type >= 4 && type <= 6)
+    {
+        for (int k = 0; k < workshop_num; ++k)
+        {
+            if (workshops[k].type_ == 7)
+            {
+                int t = workshops[workshop_id].stuff_status_;
+                while (t)
+                {
+                    if (t & 1)
+                        ++hide_urgency;
+                    t >>= 1;
+                }
+            }
+        }
+    }
+
+    // 隐藏紧急性只对图4生效
+    if (hash_code == HASH_OF_MAP4)
+    {
+        hide_urgency = min(2, hide_urgency);
+    }
+    else
+    {
+        hide_urgency = 0;
+    }
+
+    return res + hide_urgency;
 }
 
 #ifdef PREDICE_COLLIDE
@@ -535,21 +570,19 @@ void init()
     // 设置随机数种子
     srand(time(0));
 
-    unsigned long long hash = 0;
-
     // 读入地图
     string s;
     for (int i = 0; i < 100; ++i)
     {
         cin >> s;
-        hash = stringHash(s, hash);
+        hash_code = stringHash(s, hash_code);
     }
 
 #ifdef TIAOCAN
     // 调参时，所有地图共用参数
 #else
     // 根据地图选择相应的参数
-    switch (hash)
+    switch (hash_code)
     {
     case HASH_OF_MAP1:
         INIT_PRIORITY = INIT_PRIORITY_1;
@@ -677,14 +710,19 @@ void getNextDes(int robot_id)
                 double priority = INIT_PRIORITY;
                 priority += product_id * PRODUCT_ID;
 
+                // 大于3时，优先级上升一个level
                 if (product_id > 3)
                     priority += LEVEL;
 
+                // 等于7时，优先级再上升一个level，或者可以更多？
                 if (product_id == 7)
                     priority += LEVEL;
 
+                // 根据工作的紧急性增加优先级
                 priority += getUrgency(j) * URGENCY;
 
+                // 因为送往9号台就无法生产更高级的产品
+                // 因此应当适当降低优先级
                 if (workshops[j].type_ == 9 && product_id != 7)
                     priority -= NINE_WORKSHOP;
 
@@ -692,6 +730,7 @@ void getNextDes(int robot_id)
                 task.buy_workshop_id_ = i;
                 task.sell_workshop_id_ = j;
 
+                // 在正式地图中，碰撞预测的意义已经不大。
 #ifdef PREDICE_COLLIDE
                 if (willCollideOther(robot_id, task))
                 {
@@ -699,6 +738,25 @@ void getNextDes(int robot_id)
                 }
 #endif
 
+                // 在图4中，前往4号台的优先级增加3000
+                if (hash_code == HASH_OF_MAP4)
+                {
+                    if (workshops[j].type_ == 4)
+                    {
+                        priority += 3000;
+                    }
+                }
+
+                // 在图2中，前往6号台的优先级增加300
+                if (hash_code == HASH_OF_MAP2)
+                {
+                    if (workshops[j].type_ == 6)
+                    {
+                        priority += 300;
+                    }
+                }
+
+                // 优先级与距离成反比
                 priority = priority / distance;
 
                 if (priority > max_priority)

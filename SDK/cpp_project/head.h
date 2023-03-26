@@ -58,6 +58,7 @@ struct Workshop
     // 代表被预定的状态
     int reserve_stuff_status_;
     int reserve_product_status_;
+    int arrive_;
 };
 
 enum TASK_TYPE

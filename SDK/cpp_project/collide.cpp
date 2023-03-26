@@ -50,4 +50,14 @@ void getTempDes(const Position &pos1, const Position &pos2, Position &temdes1, P
     // 目前是向两侧偏移单位向量长度， 可以修改， 例如乘以1.5倍
     temdes1 = mid + getUnitVector(vertical_direction) * 1.0;
     temdes2 = mid - getUnitVector(vertical_direction) * 1.0; 
+
+    temdes1.x_ = max(0.7, temdes1.x_);
+    temdes1.x_ = min(49.3, temdes1.x_);
+    temdes1.y_ = max(0.7, temdes1.y_);
+    temdes1.y_ = min(49.3, temdes1.y_);
+
+    temdes2.x_ = max(0.7, temdes2.x_);
+    temdes2.x_ = min(49.3, temdes2.x_);
+    temdes2.y_ = max(0.7, temdes2.y_);
+    temdes2.y_ = min(49.3, temdes2.y_);
 }

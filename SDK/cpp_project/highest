@@ -1,4 +1,5 @@
 
+// 用于存储最高参数
 #ifndef __MAPS_H__
 #define __MAPS_H__
 
@@ -11,7 +12,7 @@ const double ACTUAL_MAP4_4 = 4000;
 const double ACTUAL_MAP2_6 = 1000;
 
 // 线下 66
-// 线上 66
+// 线上 63
 const double INIT_PRIORITY_1 = 669.2364695980158;
 const double PRODUCT_ID_1 = 100;
 const double LEVEL_1 = 15.871890281424328;
@@ -19,8 +20,8 @@ const double URGENCY_1 = 719.3127438598378;
 const double NINE_WORKSHOP_1 = 1768.6741386055755;
 const double COLLIDE_1 = 4968.170355130572;
 
-// 线下 80
-// 线上 84
+// 线下 73
+// 线上 76
 const double INIT_PRIORITY_2 = 2508.816508486098;
 const double PRODUCT_ID_2 = 100;
 const double LEVEL_2 = 132.0312380463493;
@@ -28,8 +29,8 @@ const double URGENCY_2 = 306.504009995346;
 const double NINE_WORKSHOP_2 = 1654.045825819905;
 const double COLLIDE_2 = 4114.579792510813;
 
-// 线下 90
-// 线上 91
+// 线下 87
+// 线上 90
 const double INIT_PRIORITY_3 = 828.9985825460141;
 const double PRODUCT_ID_3 = 100;
 const double LEVEL_3 = 1580.6708604487467;
@@ -37,8 +38,8 @@ const double URGENCY_3 = 1217.409053271341;
 const double NINE_WORKSHOP_3 = 115.22409106617503;
 const double COLLIDE_3 = 4114.579792510813;
 
-// 线下 61
-// 线上 64
+// 线下 62
+// 线上 57
 const double INIT_PRIORITY_4 = 3600;
 const double PRODUCT_ID_4 = 100;
 const double LEVEL_4 = 1500;

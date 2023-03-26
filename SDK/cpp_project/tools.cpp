@@ -14,6 +14,8 @@ struct Workshop workshops[55];
 struct Robot robots[4];
 int collision[4];
 unsigned long long hash_code;
+bool processing_collision;
+int CUR_MAP = 1;
 
 // 由坐标计算出向量
 Vector operator-(const Point &a, const Point &b)
@@ -704,6 +706,7 @@ void getNextDes(int robot_id)
             {
                 double distance = Length(workshops[i].position_ - workshops[j].position_) +
                                   Length(workshops[i].position_ - robot.position_);
+                Vector direction = Vector(cos(robot.direction_), sin(robot.direction_));
 
                 // 计算剩余时间内机器人可行驶的最大距离，并排除掉不可能的任务。
                 double max_length = 6 * (MAX_FRAME_ID - now_frame_id - 20) * TIME_FRAME;
@@ -791,6 +794,7 @@ void getNextDes(int robot_id)
 // 通过设置临时目标点
 void avoidCollide()
 {
+    processing_collision = false;
     for (int i = 0; i < 4; ++i)
     {
         for (int j = i + 1; j < 4; ++j)
@@ -832,6 +836,7 @@ void avoidCollide()
                 robots[i].task_.has_temp_destination_ = true;
                 robots[j].task_.has_temp_destination_ = true;
                 getTempDes(pos1, pos2, robots[i].task_.temp_destination_, robots[j].task_.temp_destination_);
+                processing_collision = true;
             }
         }
     }
@@ -949,22 +954,39 @@ void setInsToDes(int robot_id)
         }
 
         // 目的工作台与速度反向：刹车
-        if ((Dot(robot.linear_velocity_, robot_to_workshop) < 0 || Dot(direction, robot_to_workshop) < 0) && CUR_MAP == 1)
-        {
-            cout << "forward " + to_string(robot_id) + " 0" << '\n';
-        }
-        else if (Dot(robot.linear_velocity_, robot_to_workshop) < 0 && Dot(direction, robot_to_workshop) < 0 && (CUR_MAP == 2 || CUR_MAP == 3 || CUR_MAP == 4))
-        {
+        double tolerent_angle = (Length(robot.linear_velocity_) + 2) / 24 * PI + PI / 2;
+        if (Dot(robot.linear_velocity_, robot_to_workshop) < 0 && Dot(direction, robot_to_workshop) < 0 && (CUR_MAP == 4)){
             cout << "forward " + to_string(robot_id) + " -2" << '\n';
         }
-        else if (Dot(robot.linear_velocity_, robot_to_workshop) < 0 && Dot(direction, robot_to_workshop) >= 0 && fabs(angle) > PI / 4 && (CUR_MAP == 2 || CUR_MAP == 3 || CUR_MAP == 4))
+        else if (Dot(robot.linear_velocity_, robot_to_workshop) < 0 && Dot(direction, robot_to_workshop) >= 0 && fabs(angle) > PI / 4 && (CUR_MAP == 4))
         {
             cout << "forward " + to_string(robot_id) + " 0" << '\n';
         }
-        else if (Dot(robot.linear_velocity_, robot_to_workshop) < 0 && Dot(direction, robot_to_workshop) >= 0 && fabs(angle) <= PI / 4 && (CUR_MAP == 3 || CUR_MAP == 4))
+        else if ((Dot(robot.linear_velocity_, robot_to_workshop) < 0 || Dot(direction, robot_to_workshop) < 0))
         {
-            cout << "forward " + to_string(robot_id) + " 6" << '\n';
+            cout << "forward " + to_string(robot_id) + " 0" << '\n';
         }
+        // else if ((Dot(robot.linear_velocity_, robot_to_workshop) < 0 || Dot(direction, robot_to_workshop) < 0) && processing_collision==true)
+        // {
+        //     cout << "forward " + to_string(robot_id) + " 0" << '\n';
+        // }
+        // else if ((Dot(robot.linear_velocity_, robot_to_workshop) < 0 || Dot(direction, robot_to_workshop) < 0) && (CUR_MAP == 1) && processing_collision==false)
+        // {
+        //     cout << "forward " + to_string(robot_id) + " 0" << '\n';
+        // }
+        // else if (Dot(robot.linear_velocity_, robot_to_workshop) < 0 && fabs(angle) > tolerent_angle && (CUR_MAP == 2 || CUR_MAP == 3) && processing_collision==false)
+        // {
+        //     double final_velocity = min(24 * (fabs(angle) - tolerent_angle) / PI, 2.0);
+        //     cout << "forward " + to_string(robot_id) + " -" + to_string(final_velocity) << '\n';
+        //     // cout << "forward " + to_string(robot_id) + " -2" << '\n';
+        // }
+        // else if (Dot(robot.linear_velocity_, robot_to_workshop) < 0 && fabs(angle) > PI / 4 && (CUR_MAP == 2 || CUR_MAP == 3) && processing_collision==false)
+        // {
+        //     cout << "forward " + to_string(robot_id) + " 0" << '\n';
+        // }
+        // else if((Dot(robot.linear_velocity_, robot_to_workshop) < 0 || Dot(direction, robot_to_workshop) < 0) && (CUR_MAP == 2 || CUR_MAP == 3) && processing_collision==false){
+        //     cout << "forward " + to_string(robot_id) + " 0" << '\n';
+        // }
         else
         {
             if (Length(robot_to_workshop) < 1 && fabs(angle) > PI / 4)
@@ -987,6 +1009,9 @@ void setInsToDes(int robot_id)
                 {
                     cout << "forward " + to_string(robot_id) + " 2" << '\n';
                 }
+                // else if(Length(robot_to_workshop) < 0.75 && CUR_MAP==3){
+                //     cout << "forward " + to_string(robot_id) + " 1" << '\n';
+                // }
                 else
                 {
                     cout << "forward " + to_string(robot_id) + " 6" << '\n';

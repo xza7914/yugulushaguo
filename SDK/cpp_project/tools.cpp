@@ -490,15 +490,16 @@ pair<int, int> canCollideRobot(int robot1_id, int robot2_id)
     double predict_y2 = y2 + vy2 * base_time;
 
     // 碰撞恢复：朝向（而非速度）相反且为大角度，两机器人速度小，距离近。
-    bool cond_collision_recovery = (relative_v < BASE_VELOCITY) &&
-                                   (relative_dist < (3 * RADIUS_ROBOT_CARRY));
-    if (cond_collision_recovery)
-    {
-        cerr << "might colliation revocery" << endl;
-        if (angle_direction > (PI / 4) * 3 && angle_direction < PI)
-            return pair<int, int>(ROTATE_CLOCKWISE, ROTATE_CLOCKWISE);
-        if (angle_direction < -(PI / 4) * 3 && angle_direction > -PI)
-            return pair<int, int>(ROTATE_ANTI_CLOCKWISE, ROTATE_ANTI_CLOCKWISE);
+    bool cond_collision_recovery =  (relative_v < BASE_VELOCITY) &&
+                    (relative_dist < (3*RADIUS_ROBOT_CARRY) );
+    if (cond_collision_recovery){
+        // cerr << "might colliation revocery" << endl;
+        // cerr << relative_vx << endl;
+        // cerr << relative_vy << endl;
+        if (angle_direction > (PI/4)*3 && angle_direction < PI )
+            return pair<int,int> (ROTATE_CLOCKWISE, ROTATE_CLOCKWISE);
+        if (angle_direction < -(PI/4)*3 && angle_direction > -PI )
+            return pair<int,int> (ROTATE_ANTI_CLOCKWISE, ROTATE_ANTI_CLOCKWISE);
     }
     // 预测不碰撞条件1：预计轨道不相交
     bool cond_intersect = isIntersect(x1, y1, predict_x1, predict_y1, x2, y2, predict_x2, predict_y2);
@@ -527,9 +528,11 @@ pair<int, int> canCollideRobot(int robot1_id, int robot2_id)
         */
         double relative_predict_x = predict_x2 - predict_x1;
         double relative_predict_y = predict_y2 - predict_y1;
-        double min_dis = PointToSegDist(0, 0, relative_x, relative_y, relative_predict_x, relative_predict_y);
-        if (min_dis > 2 * RADIUS_ROBOT_CARRY)
-            return pair<int, int>(NOTHING, NOTHING);
+        double min_dis = PointToSegDist(0,0,relative_x,relative_y,relative_predict_x,relative_predict_y);
+        if(min_dis > 2* RADIUS_ROBOT_CARRY)
+            return pair<int,int> (NOTHING, NOTHING);
+        // Use mass distance and velocity angle instead.
+        angle = Angle({relative_x, relative_y}, {vx2, vy2});
         // cerr << "Radius Collision" << endl;
         // cerr << to_string(relative_x) + "," + to_string(relative_y) << endl;
         // cerr << to_string(relative_predict_x) + "," + to_string(relative_predict_y) << endl;
@@ -993,7 +996,7 @@ void setInsToDes(int robot_id)
                     // if ( collision[robot_id] )
                     // {
                     //     switch (collision[robot_id]) {
-                    //         // Now, it's impssible to slow down
+                    //         // Now, it's almost impssible to slow down
                     //         case SLOW_DOWN:// 减速
                     //         case ROTATE_CLOCKWISE | ROTATE_ANTI_CLOCKWISE:// 顺时针+顺时针：只减速
                     //         case SLOW_DOWN | ROTATE_CLOCKWISE | ROTATE_ANTI_CLOCKWISE:// 减速+逆时针+顺时针：只减速

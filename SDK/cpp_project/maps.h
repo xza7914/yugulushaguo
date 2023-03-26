@@ -19,23 +19,23 @@ const double URGENCY_1 = 719.3127438598378;
 const double NINE_WORKSHOP_1 = 1768.6741386055755;
 const double COLLIDE_1 = 4968.170355130572;
 
-// 线下 80
-// 线上 84
+// 线下 82.8
+// 线上 86.9
 const double INIT_PRIORITY_2 = 2508.816508486098;
 const double PRODUCT_ID_2 = 100;
-const double LEVEL_2 = 132.0312380463493;
-const double URGENCY_2 = 306.504009995346;
+const double LEVEL_2 = 182.0312380463493;
+const double URGENCY_2 = 316.504009995346;
 const double NINE_WORKSHOP_2 = 1654.045825819905;
 const double COLLIDE_2 = 4114.579792510813;
 
 // 线下 90
-// 线上 91
+// 线上 92.7
 const double INIT_PRIORITY_3 = 828.9985825460141;
 const double PRODUCT_ID_3 = 100;
 const double LEVEL_3 = 1580.6708604487467;
 const double URGENCY_3 = 1217.409053271341;
 const double NINE_WORKSHOP_3 = 115.22409106617503;
-const double COLLIDE_3 = 4114.579792510813;
+const double COLLIDE_3 = 702.9381892733255;
 
 // 线下 61
 // 线上 64

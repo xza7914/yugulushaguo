@@ -603,6 +603,8 @@ void init()
         URGENCY = URGENCY_2;
         NINE_WORKSHOP = NINE_WORKSHOP_2;
         COLLIDE = COLLIDE_2;
+
+        MAP2_6 = ACTUAL_MAP2_6;
         break;
 
     case HASH_OF_MAP3:
@@ -621,6 +623,8 @@ void init()
         URGENCY = URGENCY_4;
         NINE_WORKSHOP = NINE_WORKSHOP_4;
         COLLIDE = COLLIDE_4;
+
+        MAP4_4 = ACTUAL_MAP4_4;
         break;
 
     default:
@@ -713,6 +717,11 @@ void getNextDes(int robot_id)
                 double priority = INIT_PRIORITY;
                 priority += product_id * PRODUCT_ID;
 
+                if (hash_code == HASH_OF_MAP1)
+                {
+                    priority -= product_id * PRODUCT_ID;
+                }
+
                 // 大于3时，优先级上升一个level
                 if (product_id > 3)
                     priority += LEVEL;
@@ -746,16 +755,16 @@ void getNextDes(int robot_id)
                 {
                     if (workshops[j].type_ == 4)
                     {
-                        priority += 3000;
+                        priority += MAP4_4;
                     }
                 }
 
                 // 在图2中，前往6号台的优先级增加300
                 if (hash_code == HASH_OF_MAP2)
                 {
-                    if (workshops[j].type_ == 6)
+                    if (workshops[j].type_ == 6 || product_id == 6)
                     {
-                        priority += 300;
+                        priority += MAP2_6;
                     }
                 }
 
@@ -954,9 +963,15 @@ void setInsToDes(int robot_id)
         }
         else
         {
-            if (Length(robot_to_workshop) < 1 && fabs(angle) > PI / 4)
+            // ***********************************
+            // 修改针对于图二
+            double val = PI / 4;
+            if (hash_code == HASH_OF_MAP2) {
+                val = 0.3;
+            }
+
+            if (Length(robot_to_workshop) < 1 && fabs(angle) > val)
             {
-                // cerr << "forward " + to_string(robot_id) + " 0" << '\n';
                 cout << "forward " + to_string(robot_id) + " 0" << '\n';
             }
             // 可能与墙体发生碰撞：刹车

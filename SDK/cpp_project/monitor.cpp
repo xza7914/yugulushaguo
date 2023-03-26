@@ -93,11 +93,28 @@ void build_distance_table(struct Workshop &workshops[], int workshop_num)
         }
     }
     // Build table `global_money`
-    // 1.  Get product dependency
-    // 2.  Get product dependency
-
-    int current_workshop;
     int sum = 0;
+    for(int i=0; i<workshop_num; i++){
+        struct Workshop &current_workshop = workshops[i];
+        auto product_needed = consumeProductType(current_workshop.type_);
+        for(int product: product_needed){
+            int max_price = 0;
+            int max_workshop = -1;
+            for(int j=0; j<workshop_num; j++){
+                struct Workshop &workshop = workshops[j];
+                if(product == produceProductType(workshop.type_)){
+                    double distance = Distance(current_workshop.position_, workshop.position_);
+                    int frames = distance / MAX_VELOCITY / TIME_FRAME + FRAME_OPERATION;
+                    int price = getPriceWithDistance(prices_sell[product], frames) - prices_buy[product];
+                    if( max_price < price ){
+                        max_price = price;
+                        max_workshop = j;
+                    }
+                }
+            }
+            sum += max_price;
+        }
+    }
     for (product in product_needed){
         int product_type;
         int max_price = 0;

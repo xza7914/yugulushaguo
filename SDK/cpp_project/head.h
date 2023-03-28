@@ -182,4 +182,7 @@ void avoidCollideWall();
 // 为机器人设置具体指令
 void setInsToDes(int);
 
+// Montor.cpp
+void build_distance_table(struct Workshop *, int);
+
 #endif

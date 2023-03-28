@@ -27,27 +27,28 @@
 
 #include "head.h"
 #include "vector"
+#include <iostream>
 
 #define MAX_ROBOT_NUM 100
 #define MAX_WORKSHOP_TYPE 10
 const int FRAME_OPERATION = 0; // 每次买卖操作需要的额外时间（加减速/转向/碰撞等）
 int prices_buy[10] = {999999, 3000, 4400, 5800, 15400, 17200, 19200, 76000, 999999, 999999};
 int prices_sell[10] = {0, 6000, 7600, 9200, 22500, 25000, 27500, 105000, 0, 0};
-int global_product_produce[MAX_WORKSHOP_TYPE] = {0,1,2,3,4,5,6,7,0,0,0};
-int workshop_product_produce[][] = {{0}, // Workshop 0: Not exist
-                                    {0}, // Workshop 1: Can produce 
-                                    {0},
-                                    {0},
-                                    }
+int global_product_produce[MAX_WORKSHOP_TYPE] = {0,1,2,3,4,5,6,7,0,0};
+// int workshop_product_produce[][] = {{0}, // Workshop 0: Not exist
+//                                     {0}, // Workshop 1: Can produce 
+//                                     {0},
+//                                     {0},
+                                    // }
 double global_distance[MAX_ROBOT_NUM][MAX_ROBOT_NUM];
 double global_money[MAX_ROBOT_NUM][MAX_ROBOT_NUM];
 
 
 
-double Distance(struct Position& pos1, struct Position& pos2)
+double Distance(Position& pos1, Position& pos2)
 {
-    Vector v1 = Vector(pos1.x_, pos1.y);
-    Vector v2 = Vector(pos2.x_, pos2.y);
+    Vector v1 = Vector(pos1.x_, pos1.y_);
+    Vector v2 = Vector(pos2.x_, pos2.y_);
     return Length(v2-v1);
 }
 
@@ -76,15 +77,15 @@ vector<int> consumeProductType(int workshop_type){
 
 int getPriceWithDistance(int max_price, int frames)
 {
-    double x = max_price;
+    double x = frames;
     double min_rate = 0.8;
     double maxX = 9000;
     if( x >= maxX)
         return min_rate;
-    return max_price * (1 - sqrt(1 -  pow(1 - x / maxX , 2))) - (1 - min_rate);
+    return max_price * ((1 - sqrt(1 -  pow(1 - x / maxX , 2))) * (1 - min_rate) + min_rate);
 }
 
-void build_distance_table(struct Workshop &workshops[], int workshop_num)
+void build_distance_table(struct Workshop workshops[], int workshop_num)
 {
     // Build table `global_distance`;
     for(int i=0; i<workshop_num; i++){
@@ -100,37 +101,29 @@ void build_distance_table(struct Workshop &workshops[], int workshop_num)
         for(int product: product_needed){
             int max_price = 0;
             int max_workshop = -1;
+            int max_frames = -1;
             for(int j=0; j<workshop_num; j++){
                 struct Workshop &workshop = workshops[j];
                 if(product == produceProductType(workshop.type_)){
                     double distance = Distance(current_workshop.position_, workshop.position_);
                     int frames = distance / MAX_VELOCITY / TIME_FRAME + FRAME_OPERATION;
                     int price = getPriceWithDistance(prices_sell[product], frames) - prices_buy[product];
+                    // cerr << frames << endl;
+                    // cerr << price << endl;
                     if( max_price < price ){
                         max_price = price;
                         max_workshop = j;
+                        max_frames = frames;
                     }
                 }
             }
             sum += max_price;
+            char buf[200];
+            sprintf(buf, "%d :Workshop %d gets product %d from workshop %d and get money %d using frames %d", max_price/max_frames, i, product, max_workshop, max_price, max_frames);
+            cerr << buf<< endl;
         }
-    }
-    for (product in product_needed){
-        int product_type;
-        int max_price = 0;
-        int max_workshop = -1;
-        for (workshop in workshops){
-            if can_produce(workshop, product_type){
-                double distance = Distance(current_workshop.position_, workshop.position_);
-                int frames = distance / MAX_VELOCITY / TIME_FRAME + FRAME_OPERATION;
-                int price = getPriceWithDistance(prices_sell[product], frames) - prices_buy[product];
-                if( max_price < price ){
-                    max_price = price;
-                    max_workshop = workshop;
-                }
-            }
-        }
-        sum += max_price;
+
     }
 
+    throw runtime_error("global_money");
 }
